@@ -1,0 +1,182 @@
+{
+  "name": "Data Mapper examples",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "175191fc-b763-59c7-9146-4c9ab0979a74",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    id: 'A1',\n    created: '20261017',\n    customer: { name: '  Ann de Vries ', country: 'NL' },\n    items: [\n      { sku: 'P-1', qty: '2', price: '10.456' },\n      { sku: 'P-2', qty: '1', price: '3' },\n    ],\n    supplierXml: '<order ID=\"7\"><line><sku>A</sku><qty>3</qty></line><line><sku>B</sku><qty>1</qty></line></order>',\n  },\n}];"
+      },
+      "id": "d6f32830-ca16-53b3-a6a3-ca4c51d1ac53",
+      "name": "Sample order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mappings": {
+          "mapping": [
+            {
+              "sourceType": "field",
+              "transform": "none",
+              "ifMissing": "skip",
+              "source": "id",
+              "target": "orderId"
+            },
+            {
+              "sourceType": "field",
+              "transform": "date",
+              "ifMissing": "skip",
+              "source": "created",
+              "target": "orderDate",
+              "dateInputFormat": "yyyyMMdd",
+              "dateOutputFormat": "yyyy-MM-dd"
+            },
+            {
+              "sourceType": "field",
+              "transform": "trim",
+              "ifMissing": "skip",
+              "source": "customer.name",
+              "target": "buyer.name"
+            },
+            {
+              "sourceType": "field",
+              "transform": "lookup",
+              "ifMissing": "skip",
+              "source": "customer.country",
+              "target": "buyer.country",
+              "lookupTable": "NL=Netherlands\nDE=Germany",
+              "lookupFallback": "keep"
+            },
+            {
+              "sourceType": "field",
+              "transform": "none",
+              "ifMissing": "skip",
+              "source": "items[*].sku",
+              "target": "lines[*].productCode"
+            },
+            {
+              "sourceType": "field",
+              "transform": "integer",
+              "ifMissing": "skip",
+              "source": "items[*].qty",
+              "target": "lines[*].quantity"
+            },
+            {
+              "sourceType": "field",
+              "transform": "round",
+              "ifMissing": "skip",
+              "source": "items[*].price",
+              "target": "lines[*].unitPrice",
+              "decimals": 2
+            },
+            {
+              "sourceType": "value",
+              "value": "EUR",
+              "target": "lines[*].currency",
+              "transform": "none"
+            },
+            {
+              "sourceType": "field",
+              "transform": "join",
+              "ifMissing": "skip",
+              "source": "items[*].sku",
+              "target": "skuList",
+              "separator": ", "
+            }
+          ]
+        }
+      },
+      "id": "06e74e63-af6a-595d-b9eb-c08da251d201",
+      "name": "Restructure order (fields)",
+      "type": "n8n-nodes-data-mapper.dataMapper",
+      "typeVersion": 1,
+      "position": [
+        480,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "field",
+        "inputField": "supplierXml",
+        "definitionMode": "json",
+        "mappingJson": "[\n  {\n    \"source\": \"order.$.ID\",\n    \"target\": \"supplierOrderId\",\n    \"transform\": \"integer\"\n  },\n  {\n    \"source\": \"order.line[*].sku\",\n    \"target\": \"lines[*].sku\"\n  },\n  {\n    \"source\": \"order.line[*].qty\",\n    \"target\": \"lines[*].quantity\",\n    \"transform\": \"integer\"\n  }\n]"
+      },
+      "id": "b2919da8-6c89-5ab6-b736-7bb4f964e6e0",
+      "name": "Read supplier XML (JSON definition)",
+      "type": "n8n-nodes-data-mapper.dataMapper",
+      "typeVersion": 1,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "definitionMode": "json",
+        "mappingJson": "[\n  {\n    \"source\": \"id\",\n    \"target\": \"order.$.id\"\n  },\n  {\n    \"source\": \"customer.name\",\n    \"target\": \"order.customer\",\n    \"transform\": \"trim\"\n  },\n  {\n    \"source\": \"items[*].sku\",\n    \"target\": \"order.line[*].$.sku\"\n  },\n  {\n    \"source\": \"items[*].qty\",\n    \"target\": \"order.line[*].quantity\"\n  }\n]",
+        "outputFormat": "xml"
+      },
+      "id": "2ac562dd-55c1-58d1-b5d9-e4983895ab00",
+      "name": "Order as XML",
+      "type": "n8n-nodes-data-mapper.dataMapper",
+      "typeVersion": 1,
+      "position": [
+        480,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Sample order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample order": {
+      "main": [
+        [
+          {
+            "node": "Restructure order (fields)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read supplier XML (JSON definition)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Order as XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

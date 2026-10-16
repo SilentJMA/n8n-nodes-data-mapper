@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+*.tgz
+package-lock.json
+.DS_Store
+.vscode/
+.idea/
+.n8n/

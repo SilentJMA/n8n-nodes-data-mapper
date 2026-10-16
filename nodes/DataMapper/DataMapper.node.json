@@ -1,0 +1,14 @@
+{
+	"node": "n8n-nodes-data-mapper.dataMapper",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Data & Storage"],
+	"resources": {
+		"primaryDocumentation": [
+			{
+				"url": "https://github.com/SilentJMA/n8n-nodes-data-mapper#readme"
+			}
+		]
+	},
+	"alias": ["map", "mapping", "transform", "restructure", "convert", "xml", "json", "etl", "schema"]
+}

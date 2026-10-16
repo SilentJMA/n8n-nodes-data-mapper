@@ -1,0 +1,62 @@
+{
+  "name": "n8n-nodes-data-mapper",
+  "version": "0.1.0",
+  "description": "n8n community node that maps and transforms data from one structure to another, with array wildcards, value transforms, lookup tables and JSON/XML input and output.",
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "mapper",
+    "mapping",
+    "transform",
+    "xml",
+    "json",
+    "etl"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/SilentJMA/n8n-nodes-data-mapper#readme",
+  "bugs": {
+    "url": "https://github.com/SilentJMA/n8n-nodes-data-mapper/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SilentJMA/n8n-nodes-data-mapper.git"
+  },
+  "author": {
+    "name": "SilentJMA",
+    "email": "kilwanitro@gmail.com"
+  },
+  "engines": {
+    "node": ">=20.15"
+  },
+  "scripts": {
+    "build": "n8n-node build",
+    "build:watch": "tsc --watch",
+    "dev": "n8n-node dev",
+    "lint": "n8n-node lint",
+    "lint:fix": "n8n-node lint --fix",
+    "test": "n8n-node build && node --test test/*.test.js",
+    "prepublishOnly": "n8n-node prerelease",
+    "release": "n8n-node release"
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo"
+  ],
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "strict": true,
+    "credentials": [],
+    "nodes": [
+      "dist/nodes/DataMapper/DataMapper.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@n8n/node-cli": "*",
+    "eslint": "9.32.0",
+    "prettier": "3.6.2",
+    "typescript": "5.9.2"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
