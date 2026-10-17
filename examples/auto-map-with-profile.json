@@ -1,0 +1,116 @@
+{
+  "name": "Data Mapper \u2014 target profile & auto-map",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "09b46140-7eb6-53cb-8f9b-cadf1850fb67",
+      "name": "When clicking 'Execute workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: {\n  OrderID: 'A1',\n  Amount: '129.50',\n  OrderDate: '2026-10-17',\n  Items: [ { SKU: 'P-1', Qty: '2' }, { SKU: 'P-2', Qty: '1' } ],\n  internalNote: 'ignored by auto-map',\n} }];"
+      },
+      "id": "8306a9f2-e9e9-51e8-a968-5fbaabd3c3be",
+      "name": "Supplier order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "definitionMode": "auto",
+        "targetProfile": "<bns:Component xmlns:bns=\"http://api.platform.example.com/\" name=\"TargetOrder\" type=\"profile.json\">\n  <bns:object><JSONProfile strict=\"false\"><DataElements>\n    <JSONRootValue dataType=\"character\" isMappable=\"true\" isNode=\"true\" key=\"1\" name=\"Root\"><DataFormat><ProfileCharacterFormat/></DataFormat>\n      <JSONObject isMappable=\"false\" isNode=\"true\" key=\"2\" name=\"Object\">\n        <JSONObjectEntry dataType=\"character\" isMappable=\"true\" key=\"3\" name=\"orderId\"><DataFormat/></JSONObjectEntry>\n        <JSONObjectEntry dataType=\"number\" isMappable=\"true\" key=\"4\" name=\"amount\"><DataFormat/></JSONObjectEntry>\n        <JSONObjectEntry dataType=\"datetime\" isMappable=\"true\" key=\"5\" name=\"orderDate\"><DataFormat/></JSONObjectEntry>\n        <JSONObjectEntry dataType=\"character\" isMappable=\"false\" key=\"6\" name=\"lines\">\n          <DataFormat/><JSONArray elementType=\"repeating\" key=\"7\" name=\"lines\">\n            <JSONArrayElement dataType=\"character\" key=\"8\" maxOccurs=\"-1\" minOccurs=\"0\" name=\"ArrayElement1\">\n              <JSONObject isMappable=\"false\" key=\"9\" name=\"Object\">\n                <JSONObjectEntry dataType=\"character\" isMappable=\"true\" key=\"10\" name=\"sku\"><DataFormat/></JSONObjectEntry>\n                <JSONObjectEntry dataType=\"number\" isMappable=\"true\" key=\"11\" name=\"quantity\"><DataFormat/></JSONObjectEntry>\n              </JSONObject></JSONArrayElement></JSONArray>\n        </JSONObjectEntry>\n      </JSONObject></JSONRootValue>\n  </DataElements></JSONProfile></bns:object></bns:Component>",
+        "targetProfileFormat": "auto",
+        "autoOptions": {
+          "threshold": 0.6,
+          "strategy": "fuzzy",
+          "report": true
+        }
+      },
+      "id": "a695e21d-d3ca-504a-ae0c-db6d10b386b7",
+      "name": "Auto-map to target profile",
+      "type": "n8n-nodes-data-mapper.dataMapper",
+      "typeVersion": 1,
+      "position": [
+        470,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "definitionMode": "fields",
+        "targetProfile": "<bns:Component xmlns:bns=\"http://api.platform.example.com/\" name=\"TargetOrder\" type=\"profile.json\">\n  <bns:object><JSONProfile strict=\"false\"><DataElements>\n    <JSONRootValue dataType=\"character\" isMappable=\"true\" isNode=\"true\" key=\"1\" name=\"Root\"><DataFormat><ProfileCharacterFormat/></DataFormat>\n      <JSONObject isMappable=\"false\" isNode=\"true\" key=\"2\" name=\"Object\">\n        <JSONObjectEntry dataType=\"character\" isMappable=\"true\" key=\"3\" name=\"orderId\"><DataFormat/></JSONObjectEntry>\n        <JSONObjectEntry dataType=\"number\" isMappable=\"true\" key=\"4\" name=\"amount\"><DataFormat/></JSONObjectEntry>\n        <JSONObjectEntry dataType=\"datetime\" isMappable=\"true\" key=\"5\" name=\"orderDate\"><DataFormat/></JSONObjectEntry>\n        <JSONObjectEntry dataType=\"character\" isMappable=\"false\" key=\"6\" name=\"lines\">\n          <DataFormat/><JSONArray elementType=\"repeating\" key=\"7\" name=\"lines\">\n            <JSONArrayElement dataType=\"character\" key=\"8\" maxOccurs=\"-1\" minOccurs=\"0\" name=\"ArrayElement1\">\n              <JSONObject isMappable=\"false\" key=\"9\" name=\"Object\">\n                <JSONObjectEntry dataType=\"character\" isMappable=\"true\" key=\"10\" name=\"sku\"><DataFormat/></JSONObjectEntry>\n                <JSONObjectEntry dataType=\"number\" isMappable=\"true\" key=\"11\" name=\"quantity\"><DataFormat/></JSONObjectEntry>\n              </JSONObject></JSONArrayElement></JSONArray>\n        </JSONObjectEntry>\n      </JSONObject></JSONRootValue>\n  </DataElements></JSONProfile></bns:object></bns:Component>",
+        "autoMapRemaining": true,
+        "mappings": {
+          "mapping": [
+            {
+              "sourceType": "field",
+              "source": "OrderID",
+              "targetMode": "profile",
+              "targetField": "orderId",
+              "transform": "none",
+              "ifMissing": "skip"
+            },
+            {
+              "sourceType": "value",
+              "value": "={{ $now.toISODate() }}",
+              "targetMode": "profile",
+              "targetField": "orderDate",
+              "transform": "none"
+            }
+          ]
+        }
+      },
+      "id": "2f40c117-7e7f-5f18-a554-6225e5c86ba3",
+      "name": "Map with profile dropdown + auto rest",
+      "type": "n8n-nodes-data-mapper.dataMapper",
+      "typeVersion": 1,
+      "position": [
+        470,
+        420
+      ]
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Supplier order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supplier order": {
+      "main": [
+        [
+          {
+            "node": "Auto-map to target profile",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Map with profile dropdown + auto rest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

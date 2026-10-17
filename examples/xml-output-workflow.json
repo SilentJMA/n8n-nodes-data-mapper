@@ -1,0 +1,169 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        0
+      ],
+      "id": "a4336454-5934-55be-9454-2d9a522b4b41",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "template": "={\n  \"OrderID\": \"A1\",\n  \"CustomerName\": \"  Ann de Vries \",\n  \"Country\": \"NL\",\n  \"Currency\": \"eur\",\n  \"Amount\": \"129.456\",\n  \"OrderDate\": \"2026-10-17\",\n  \"Items\": [{\"SKU\": \"P-1\", \"Qty\": \"2\"}, {\"SKU\": \"P-2\", \"Qty\": \"1\"}]\n}",
+        "outputFormat": "json",
+        "options": {}
+      },
+      "type": "CUSTOM.messageTemplate",
+      "typeVersion": 1,
+      "position": [
+        -100,
+        0
+      ],
+      "id": "45b1ec5b-a950-5e44-b41c-9b588b34c141",
+      "name": "Sample order (JSON)"
+    },
+    {
+      "parameters": {
+        "definitionMode": "fields",
+        "mappings": {
+          "mapping": [
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "none",
+              "ifMissing": "skip",
+              "source": "OrderID",
+              "target": "invoice.$.id"
+            },
+            {
+              "sourceType": "value",
+              "targetMode": "custom",
+              "transform": "none",
+              "ifMissing": "skip",
+              "value": "n8n",
+              "target": "invoice.$.source"
+            },
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "trim",
+              "ifMissing": "skip",
+              "source": "CustomerName",
+              "target": "invoice.customer.name"
+            },
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "lookup",
+              "ifMissing": "skip",
+              "source": "Country",
+              "target": "invoice.customer.country",
+              "lookupTable": "NL=Netherlands\nDE=Germany",
+              "lookupFallback": "keep"
+            },
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "round",
+              "ifMissing": "skip",
+              "source": "Amount",
+              "target": "invoice.amount._",
+              "decimals": 2
+            },
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "uppercase",
+              "ifMissing": "skip",
+              "source": "Currency",
+              "target": "invoice.amount.$.currency"
+            },
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "date",
+              "ifMissing": "skip",
+              "source": "OrderDate",
+              "target": "invoice.issuedDate",
+              "dateOutputFormat": "dd/MM/yyyy"
+            },
+            {
+              "sourceType": "value",
+              "targetMode": "custom",
+              "transform": "none",
+              "ifMissing": "skip",
+              "value": "={{ $now.toISO() }}",
+              "target": "invoice.generatedAt"
+            },
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "none",
+              "ifMissing": "skip",
+              "source": "Items[*].SKU",
+              "target": "invoice.lines.line[*].$.sku"
+            },
+            {
+              "sourceType": "field",
+              "targetMode": "custom",
+              "transform": "integer",
+              "ifMissing": "skip",
+              "source": "Items[*].Qty",
+              "target": "invoice.lines.line[*].qty"
+            }
+          ]
+        },
+        "unmapped": "drop",
+        "outputFormat": "xml",
+        "outputField": "xml",
+        "rootElement": "",
+        "xmlDeclaration": true
+      },
+      "type": "CUSTOM.dataMapper",
+      "typeVersion": 1,
+      "position": [
+        140,
+        0
+      ],
+      "id": "a31edc33-7cac-5465-b1c9-4bebe69f551b",
+      "name": "Build invoice XML"
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Sample order (JSON)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sample order (JSON)": {
+      "main": [
+        [
+          {
+            "node": "Build invoice XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build invoice XML": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "08a7b8a3c4c60e7a987f34d5aea7b2503f1c57055bdb6c95fddc9f365ddb8efe"
+  }
+}

@@ -147,3 +147,91 @@ test('jsonToXml root handling and invalid names', () => {
 	assert.equal(jsonToXml({ t: { $: { u: 'x' }, _: 'hi' } }, { declaration: false, attributeKey: '$', textKey: '_' }), '<t u="x">hi</t>');
 	assert.throws(() => jsonToXml({ 'bad name': 1 }, { declaration: false, attributeKey: '$', textKey: '_' }), /not a valid XML element name/);
 });
+
+const jsonProfile = `<bns:Component xmlns:bns="http://api.platform.example.com/" name="Resp" type="profile.json">
+  <bns:object><JSONProfile strict="false"><DataElements>
+    <JSONRootValue dataType="character" isMappable="true" key="1" name="Root"><DataFormat/>
+      <JSONObject isMappable="false" key="2" name="Object">
+        <JSONObjectEntry dataType="character" isMappable="true" key="3" name="orderId"><DataFormat/></JSONObjectEntry>
+        <JSONObjectEntry dataType="number" isMappable="true" key="4" name="amount"><DataFormat/></JSONObjectEntry>
+      </JSONObject>
+    </JSONRootValue>
+  </DataElements></JSONProfile></bns:object></bns:Component>`;
+
+test('auto-map mode maps source into a JSON profile component', async () => {
+	const [out] = await run(
+		{
+			...base,
+			definitionMode: 'auto',
+			targetProfile: jsonProfile,
+			targetProfileFormat: 'auto',
+			autoOptions: { threshold: 0.6, strategy: 'fuzzy', report: true },
+		},
+		[{ json: { OrderID: 'A1', Amount: '9.99', other: 'ignore' } }],
+	);
+	assert.equal(out[0].json.orderId, 'A1');
+	assert.equal(out[0].json.amount, 9.99);
+	assert.deepEqual(out[0].json._autoMap.unmatched, []);
+	assert.equal(out[0].json._autoMap.matched.length, 2);
+});
+
+test('auto-map errors without a profile', async () => {
+	await assert.rejects(
+		run({ ...base, definitionMode: 'auto', targetProfile: '' }, [{ json: { a: 1 } }]),
+		/Auto-Map needs a target profile/,
+	);
+});
+
+test('fields mode: target from profile + auto-map remaining', async () => {
+	const [out] = await run(
+		{
+			...base,
+			definitionMode: 'fields',
+			targetProfile: jsonProfile,
+			autoMapRemaining: true,
+			mappings: { mapping: [{ sourceType: 'field', source: 'ref', targetMode: 'profile', targetField: 'orderId', transform: 'none', ifMissing: 'skip' }] },
+		},
+		[{ json: { ref: 'R-9', amount: '12.50' } }],
+	);
+	assert.deepEqual(out[0].json, { orderId: 'R-9', amount: 12.5 });
+});
+
+test('fields mode: profile target with nothing selected errors', async () => {
+	await assert.rejects(
+		run(
+			{ ...base, definitionMode: 'fields', targetProfile: jsonProfile, autoMapRemaining: false, mappings: { mapping: [{ sourceType: 'field', source: 'a', targetMode: 'profile', targetField: '', transform: 'none', ifMissing: 'skip' }] } },
+			[{ json: { a: 1 } }],
+		),
+		/no target field is selected/,
+	);
+});
+
+test('auto-map into an XML profile uses its root element for XML output', async () => {
+	const xmlProfile = `<bns:Component xmlns:bns="http://api.platform.example.com/" type="profile.xml"><bns:object><XMLProfile><DataElements>
+		<XMLElement name="order" isMappable="false" isNode="true" key="1" maxOccurs="1">
+			<XMLElement name="id" dataType="character" isMappable="true" isNode="true" key="2" maxOccurs="1"><DataFormat/></XMLElement>
+		</XMLElement>
+	</DataElements></XMLProfile></bns:object></bns:Component>`;
+	const [out] = await run(
+		{ ...base, definitionMode: 'auto', targetProfile: xmlProfile, autoOptions: {}, outputFormat: 'xml', outputField: 'xml', rootElement: '', xmlDeclaration: false },
+		[{ json: { id: 'A1' } }],
+	);
+	assert.equal(out[0].json.xml, '<order>\n  <id>A1</id>\n</order>');
+});
+
+test('auto-map reads the target profile from an uploaded file', async () => {
+	const [out] = await run(
+		{
+			...base,
+			definitionMode: 'auto',
+			targetProfileSource: 'binary',
+			profileBinaryField: 'profile',
+			targetProfileFormat: 'auto',
+			autoOptions: {},
+		},
+		[{ json: { OrderID: 'Z9', Amount: '5' } }],
+		{ binary: { profile: jsonProfile } },
+	);
+	assert.equal(out[0].json.orderId, 'Z9');
+	assert.equal(out[0].json.amount, 5);
+});

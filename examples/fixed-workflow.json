@@ -1,0 +1,94 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-320, 0],
+      "id": "8d29fbe7-9502-4f9d-8578-e880801f52b9",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "template": "{\n  \"OrderID\": \"A1\",\n  \"Amount\": \"129.50\",\n  \"OrderDate\": \"2026-10-17\",\n  \"Items\": [\n    { \"SKU\": \"P-1\", \"Qty\": \"2\" },\n    { \"SKU\": \"P-2\", \"Qty\": \"1\" }\n  ],\n  \"internalNote\": \"ignored by the mapping\"\n}",
+        "outputFormat": "json",
+        "options": {}
+      },
+      "type": "CUSTOM.messageTemplate",
+      "typeVersion": 1,
+      "position": [-112, 16],
+      "id": "d73c60f1-6fee-4048-af70-fec86e622f09",
+      "name": "Message Template1"
+    },
+    {
+      "parameters": {
+        "definitionMode": "fields",
+        "mappings": {
+          "mapping": [
+            {
+              "sourceType": "field",
+              "source": "OrderID",
+              "targetMode": "custom",
+              "target": "CustomerOrderID",
+              "transform": "none",
+              "ifMissing": "skip"
+            },
+            {
+              "sourceType": "field",
+              "source": "OrderDate",
+              "targetMode": "custom",
+              "target": "BillingDate",
+              "transform": "date",
+              "dateOutputFormat": "dd/MM/yyyy",
+              "ifMissing": "skip"
+            },
+            {
+              "sourceType": "field",
+              "source": "Amount",
+              "targetMode": "custom",
+              "target": "Total",
+              "transform": "number",
+              "ifMissing": "skip"
+            },
+            {
+              "sourceType": "field",
+              "source": "Items[*].SKU",
+              "targetMode": "custom",
+              "target": "Lines[*].Product",
+              "transform": "none",
+              "ifMissing": "skip"
+            },
+            {
+              "sourceType": "field",
+              "source": "Items[*].Qty",
+              "targetMode": "custom",
+              "target": "Lines[*].Quantity",
+              "transform": "integer",
+              "ifMissing": "skip"
+            }
+          ]
+        },
+        "unmapped": "drop",
+        "outputFormat": "json"
+      },
+      "type": "CUSTOM.dataMapper",
+      "typeVersion": 1,
+      "position": [128, 48],
+      "id": "a067d30b-3faa-4bce-87d9-e198cf40fac0",
+      "name": "Data Mapper"
+    }
+  ],
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [[{ "node": "Message Template1", "type": "main", "index": 0 }]]
+    },
+    "Message Template1": {
+      "main": [[{ "node": "Data Mapper", "type": "main", "index": 0 }]]
+    },
+    "Data Mapper": { "main": [[]] }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "08a7b8a3c4c60e7a987f34d5aea7b2503f1c57055bdb6c95fddc9f365ddb8efe"
+  }
+}

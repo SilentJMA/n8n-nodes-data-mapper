@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-data-mapper",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "n8n community node that maps and transforms data from one structure to another, with array wildcards, value transforms, lookup tables and JSON/XML input and output.",
   "keywords": [
     "n8n-community-node-package",
