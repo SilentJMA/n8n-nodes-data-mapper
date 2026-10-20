@@ -104,3 +104,36 @@ test('v2 Map Automatically honours a custom synonym from options', async () => {
 	const [out] = await new DataMapper().execute.call(ctx);
 	assert.deepEqual(out[0].json, { quantity: 3 });
 });
+
+test('v1 Auto-Map Remaining uses Auto-Map Options (synonyms + report)', async () => {
+	const node = new DataMapper();
+	const params = {
+		inputSource: 'json',
+		definitionMode: 'fields',
+		mappingLayout: 'list',
+		targetProfileSource: 'paste',
+		targetProfile: '{"orderId":"x","qty":1,"city":"x"}',
+		targetProfileFormat: 'auto',
+		mappings: { mapping: [{ sourceType: 'field', source: 'OrderID', targetMode: 'custom', target: 'orderId', transform: 'none', ifMissing: 'skip' }] },
+		autoMapRemaining: true,
+		autoOptions: { report: true, threshold: 0.6, synonyms: 'menge=quantity' },
+		unmapped: 'drop',
+		outputFormat: 'json',
+	};
+	const ctx = {
+		getInputData: () => [{ json: { OrderID: 'A1', Menge: '3', City: 'Oslo' } }],
+		getNode: () => ({ name: 'Data Mapper', typeVersion: 1 }),
+		continueOnFail: () => false,
+		getNodeParameter: (name, i, fb) => {
+			const v = name.split('.').reduce((o, k) => (o == null ? undefined : o[k]), params);
+			return v === undefined ? fb : v;
+		},
+		helpers: {},
+	};
+	const [out] = await node.execute.call(ctx);
+	assert.equal(out[0].json.orderId, 'A1');
+	assert.equal(out[0].json.qty, 3);
+	assert.equal(out[0].json.city, 'Oslo');
+	assert.deepEqual(out[0].json._autoMap.unmatched, []);
+	assert.equal(out[0].json._autoMap.matched.length, 2);
+});

@@ -25,7 +25,7 @@ Mappings run in order; a later mapping to the same target overwrites an earlier 
 | --- | --- |
 | **Input** | *Item JSON*, *Text Field* (parse JSON/XML text), or *File* (parse a JSON/XML file). |
 | **Input Format** | *Detect Automatically*, *JSON* or *XML*. |
-| **Define Mappings** | *Using Fields Below*, *Auto-Map From Profile*, or *Using JSON*. |
+| **Define Mappings** | *Map Each Column Manually*, *Auto-Map From Profile*, or *Using JSON*. Under *Map Each Column Manually*, **Mapping Layout** is *One Mapping at a Time* or *Fill Target Fields* (lists every target field; set the source for each). |
 | **Target Profile** | Optional structure to map into. See [Profiles and Auto-Map](Profiles-and-Auto-Map.md). |
 | **Source Profile** | Optional structure of the incoming data (classic mode). Enables **Source: From Source Profile** with a dropdown of source fields. |
 | **Mappings** | Each has a **Source** (field path, a field from the source profile, or fixed value), a **Target** (custom path or profile field), a **Transform**, and **If Source Is Missing**. |

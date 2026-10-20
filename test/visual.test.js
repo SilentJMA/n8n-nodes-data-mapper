@@ -300,10 +300,10 @@ test('v2: Map Automatically without a profile explains what is missing', async (
 	);
 });
 
-test('node description: v1 stays for old workflows, v2 is the default', () => {
+test('node description: v1 is the default, v2 stays for old workflows', () => {
 	const d = new DataMapper().description;
 	assert.deepEqual(d.version, [1, 2]);
-	assert.equal(d.defaultVersion, 2);
+	assert.equal(d.defaultVersion, 1);
 	const byName = (n) => d.properties.filter((p) => p.name === n);
 	assert.deepEqual(byName('mapping')[0].displayOptions.show['@version'], [2]);
 	assert.deepEqual(byName('definitionMode')[0].displayOptions.show['@version'], [1]);

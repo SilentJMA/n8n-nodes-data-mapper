@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-10-20
+
+### Added
+
+- **CSV output in the classic node** (*CSV* and *CSV File*), with a CSV Options menu: delimiter, header row, line ending, one CSV for all items, and formula escaping.
+- The full **Auto-Map Options** (report, minimum confidence, custom synonyms, match strategy, ...) now also apply to **Auto-Map Remaining Target Fields**, not just Auto-Map From Profile, so the classic node has the same auto-map tuning and report as the visual mapper.
+
+### Changed
+
+- **New Data Mapper nodes now default to the classic field mappings (node version 1).** The visual drag-and-drop mapper stays available as **node version 2**, so nodes already built with it keep working, but it is no longer the default for newly added nodes. This keeps new nodes consistent with existing workflows.
+- Classic mapper layout now matches the visual one: **Define Mappings** sits under **Profile Format**, its first option is **Map Each Column Manually**, and a mapping's **Target** defaults to the target-profile dropdown so the field list shows right away.
+- **Classic mode now has two mapping layouts** under *Map Each Column Manually*: *One Mapping at a Time* (the row-by-row list) and *Fill Target Fields*, which lists every target-profile field and lets you set the source for each — picked from the Source Profile dropdown, dragged, or an expression — right inside the classic node, with an Options menu (Convert Types From Profile, Keep Empty Values). The Fill Target Fields layout also has a **Transform a Field** list (pick a target field and a transform), since n8n's field widget can't nest a transform control inside each row.
+- Clearer in-node guidance (visual mapper) on the ways to map incoming data: Map Automatically, drag from the Input panel, expressions, or a pasted Source Profile for dropdowns.
+
+[0.4.2]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.2
+
 ## [0.4.1] - 2026-10-20
 
 ### Fixed

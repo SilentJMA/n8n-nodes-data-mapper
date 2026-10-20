@@ -30,12 +30,12 @@ import {
 	type Profile,
 	type ProfileFormat,
 } from './profile';
-import { executeVisual, getProfileFields, visualProperties } from './visual';
+import { buildDropRules, csvText, executeVisual, getProfileFields, orderByProfile, visualProperties } from './visual';
 import { jsonToXml, parseXml, xmlToJson, XmlParseError } from './xml';
 
 type InputSource = 'json' | 'field' | 'binary';
 type InputFormat = 'auto' | 'json' | 'xml';
-type OutputFormat = 'json' | 'xml' | 'xmlFile' | 'jsonFile';
+type OutputFormat = 'json' | 'xml' | 'csv' | 'xmlFile' | 'jsonFile' | 'csvFile';
 type DefinitionMode = 'fields' | 'json' | 'auto';
 
 interface UiMapping {
@@ -60,82 +60,7 @@ interface UiMapping {
 
 const show = (values: Record<string, string[]>) => ({ show: values });
 
-const mappingFields: INodeProperties[] = [
-	{
-		displayName: 'Source',
-		name: 'sourceType',
-		type: 'options',
-		options: [
-			{ name: 'Input Field', value: 'field', description: 'Read a value from the input by path' },
-			{
-				name: 'From Source Profile',
-				value: 'profile',
-				description: 'Pick a field from the source profile',
-			},
-			{ name: 'Fixed Value', value: 'value', description: 'Write a fixed value or the result of an expression' },
-		],
-		default: 'field',
-	},
-	{
-		displayName: 'Source Field Name or ID',
-		name: 'sourceField',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getSourceFields' },
-		default: '',
-		description: 'Field from the source profile. Fill the Source Profile field above first. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-		displayOptions: show({ sourceType: ['profile'] }),
-	},
-	{
-		displayName: 'Source Path',
-		name: 'source',
-		type: 'string',
-		default: '',
-		placeholder: 'customer.addresses[*].city',
-		description:
-			'Dot path into the input. Use [0] for one array element, [*] for every element, or leave empty for the whole input.',
-		displayOptions: show({ sourceType: ['field'] }),
-	},
-	{
-		displayName: 'Value',
-		name: 'value',
-		type: 'string',
-		default: '',
-		description: 'Fixed text, or an expression such as {{ $now.toISO() }}',
-		displayOptions: show({ sourceType: ['value'] }),
-	},
-	{
-		displayName: 'Target',
-		name: 'targetMode',
-		type: 'options',
-		options: [
-			{ name: 'Custom Path', value: 'custom', description: 'Type the target path yourself' },
-			{
-				name: 'From Target Profile',
-				value: 'profile',
-				description: 'Pick a field from the uploaded target profile',
-			},
-		],
-		default: 'custom',
-	},
-	{
-		displayName: 'Target Field Name or ID',
-		name: 'targetField',
-		type: 'options',
-		typeOptions: { loadOptionsMethod: 'getTargetFields' },
-		default: '',
-		description: 'Field from the target profile. Fill the Target Profile field above first. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
-		displayOptions: show({ targetMode: ['profile'] }),
-	},
-	{
-		displayName: 'Target Path',
-		name: 'target',
-		type: 'string',
-		default: '',
-		placeholder: 'shipping.cities[*]',
-		description:
-			'Where to write the value in the output. Each [*] matches a [*] in the source path, in order.',
-		displayOptions: show({ targetMode: ['custom'] }),
-	},
+const transformFields: INodeProperties[] = [
 	{
 		displayName: 'Transform',
 		name: 'transform',
@@ -222,6 +147,85 @@ const mappingFields: INodeProperties[] = [
 		default: '',
 		displayOptions: show({ transform: ['lookup'], lookupFallback: ['default'] }),
 	},
+];
+
+const mappingFields: INodeProperties[] = [
+	{
+		displayName: 'Source',
+		name: 'sourceType',
+		type: 'options',
+		options: [
+			{ name: 'Input Field', value: 'field', description: 'Read a value from the input by path' },
+			{
+				name: 'From Source Profile',
+				value: 'profile',
+				description: 'Pick a field from the source profile',
+			},
+			{ name: 'Fixed Value', value: 'value', description: 'Write a fixed value or the result of an expression' },
+		],
+		default: 'field',
+	},
+	{
+		displayName: 'Source Field Name or ID',
+		name: 'sourceField',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getSourceFields' },
+		default: '',
+		description: 'Field from the source profile. Fill the Source Profile field above first. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+		displayOptions: show({ sourceType: ['profile'] }),
+	},
+	{
+		displayName: 'Source Path',
+		name: 'source',
+		type: 'string',
+		default: '',
+		placeholder: 'customer.addresses[*].city',
+		description:
+			'Dot path into the input. Use [0] for one array element, [*] for every element, or leave empty for the whole input.',
+		displayOptions: show({ sourceType: ['field'] }),
+	},
+	{
+		displayName: 'Value',
+		name: 'value',
+		type: 'string',
+		default: '',
+		description: 'Fixed text, or an expression such as {{ $now.toISO() }}',
+		displayOptions: show({ sourceType: ['value'] }),
+	},
+	{
+		displayName: 'Target',
+		name: 'targetMode',
+		type: 'options',
+		options: [
+			{ name: 'Custom Path', value: 'custom', description: 'Type the target path yourself' },
+			{
+				name: 'From Target Profile',
+				value: 'profile',
+				description: 'Pick a field from the target profile',
+			},
+		],
+		default: 'profile',
+	},
+	{
+		displayName: 'Target Field Name or ID',
+		name: 'targetField',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getTargetFields' },
+		default: '',
+		description: 'Field from the target profile. Fill the Target Profile field above first. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+		displayOptions: show({ targetMode: ['profile'] }),
+	},
+	{
+		displayName: 'Target Path',
+		name: 'target',
+		type: 'string',
+		default: '',
+		placeholder: 'shipping.cities[*]',
+		description:
+			'Where to write the value in the output. Each [*] matches a [*] in the source path, in order.',
+		displayOptions: show({ targetMode: ['custom'] }),
+	},
+	...transformFields,
 	{
 		displayName: 'If Source Is Missing',
 		name: 'ifMissing',
@@ -302,26 +306,6 @@ const v1Properties: INodeProperties[] = [
 				description:
 					'XML is read with attributes under "$" and text under "_", so a path looks like order.$.ID or order.total._',
 				displayOptions: show({ inputSource: ['field', 'binary'] }),
-			},
-			{
-				displayName: 'Define Mappings',
-				name: 'definitionMode',
-				type: 'options',
-				noDataExpression: true,
-				options: [
-					{ name: 'Using Fields Below', value: 'fields' },
-					{
-						name: 'Auto-Map From Profile',
-						value: 'auto',
-						description: 'Match source fields to a target profile automatically by name',
-					},
-					{
-						name: 'Using JSON',
-						value: 'json',
-						description: 'Paste or reference a mapping definition, so one mapping can be reused across workflows',
-					},
-				],
-				default: 'fields',
 			},
 			{
 				displayName: 'Source Profile',
@@ -420,6 +404,93 @@ const v1Properties: INodeProperties[] = [
 				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
 			},
 			{
+				displayName: 'Define Mappings',
+				name: 'definitionMode',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'Map Each Column Manually', value: 'fields', description: 'Add a mapping per target field' },
+					{
+						name: 'Auto-Map From Profile',
+						value: 'auto',
+						description: 'Match source fields to a target profile automatically by name',
+					},
+					{
+						name: 'Using JSON',
+						value: 'json',
+						description: 'Paste or reference a mapping definition, so one mapping can be reused across workflows',
+					},
+				],
+				default: 'fields',
+			},
+			{
+				displayName: 'Mapping Layout',
+				name: 'mappingLayout',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{ name: 'One Mapping at a Time', value: 'list', description: 'Add a mapping row for each field' },
+					{
+						name: 'Fill Target Fields',
+						value: 'fields',
+						description: 'List every target-profile field and set the source for each, like a visual mapper',
+					},
+				],
+				default: 'list',
+				displayOptions: show({ definitionMode: ['fields'] }),
+			},
+			{
+				displayName: 'Target Fields',
+				name: 'columnMapping',
+				type: 'resourceMapper',
+				noDataExpression: true,
+				default: { mappingMode: 'defineBelow', value: null },
+				required: true,
+				typeOptions: {
+					loadOptionsDependsOn: ['targetProfile', 'targetProfileFormat', 'sourceProfile', 'sourceProfileFormat'],
+					resourceMapper: {
+						resourceMapperMethod: 'getProfileFields',
+						mode: 'add',
+						valuesLabel: 'Target Fields',
+						fieldWords: { singular: 'target field', plural: 'target fields' },
+						addAllFields: true,
+						multiKeyMatch: false,
+						supportAutoMap: false,
+						noFieldsError: 'No target fields found. Paste a target profile above.',
+					},
+				},
+				displayOptions: show({ definitionMode: ['fields'], mappingLayout: ['fields'] }),
+			},
+			{
+				displayName: 'Transform a Field',
+				name: 'fieldTransforms',
+				placeholder: 'Add Field Transform',
+				type: 'fixedCollection',
+				typeOptions: { multipleValues: true },
+				default: {},
+				description:
+					'Convert or reformat the target fields above (trim, number, date, lookup, split/join, ...). Pick a field and its transform. Number and boolean types from the profile already convert on their own.',
+				displayOptions: show({ definitionMode: ['fields'], mappingLayout: ['fields'] }),
+				options: [
+					{
+						displayName: 'Field',
+						name: 'item',
+						values: [
+							{
+								displayName: 'Target Field Name or ID',
+								name: 'targetField',
+								type: 'options',
+								typeOptions: { loadOptionsMethod: 'getTargetFields' },
+								default: '',
+								description:
+									'Which target field to transform. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+							},
+							...transformFields,
+						],
+					},
+				],
+			},
+			{
 				displayName: 'Mappings',
 				name: 'mappings',
 				placeholder: 'Add Mapping',
@@ -427,7 +498,7 @@ const v1Properties: INodeProperties[] = [
 				typeOptions: { multipleValues: true, sortable: true },
 				default: {},
 				description: 'Applied in order; a later mapping to the same target overwrites an earlier one',
-				displayOptions: show({ definitionMode: ['fields'] }),
+				displayOptions: show({ definitionMode: ['fields'], mappingLayout: ['list'] }),
 				options: [{ displayName: 'Mapping', name: 'mapping', values: mappingFields }],
 			},
 			{
@@ -437,7 +508,7 @@ const v1Properties: INodeProperties[] = [
 				default: false,
 				description:
 					'Whether to also fill any target-profile fields you have not mapped above, by matching them to source fields by name',
-				displayOptions: show({ definitionMode: ['fields'] }),
+				displayOptions: show({ definitionMode: ['fields'], mappingLayout: ['list'] }),
 			},
 			{
 				displayName: 'Mapping Definition',
@@ -454,7 +525,7 @@ const v1Properties: INodeProperties[] = [
 				type: 'collection',
 				placeholder: 'Add option',
 				default: {},
-				displayOptions: show({ definitionMode: ['auto'] }),
+				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
 				options: [
 					{
 						displayName: 'Add Auto-Map Report',
@@ -538,6 +609,8 @@ const v1Properties: INodeProperties[] = [
 				type: 'options',
 				noDataExpression: true,
 				options: [
+					{ name: 'CSV', value: 'csv', description: 'Output the mapped data as CSV text in a field' },
+					{ name: 'CSV File', value: 'csvFile', description: 'Output the mapped data as a CSV file' },
 					{ name: 'JSON', value: 'json', description: 'Output the mapped data as the item' },
 					{ name: 'JSON File', value: 'jsonFile', description: 'Output the mapped data as a JSON file' },
 					{ name: 'XML', value: 'xml', description: 'Output the mapped data as XML text in a field' },
@@ -549,9 +622,10 @@ const v1Properties: INodeProperties[] = [
 				displayName: 'Put Output in Field',
 				name: 'outputField',
 				type: 'string',
-				default: 'xml',
-				required: true,
-				displayOptions: show({ outputFormat: ['xml'] }),
+				default: '',
+				placeholder: 'xml',
+				description: 'Field for the XML or CSV text. Leave empty to use "xml" or "csv".',
+				displayOptions: show({ outputFormat: ['xml', 'csv'] }),
 			},
 			{
 				displayName: 'Put Output File in Field',
@@ -559,7 +633,7 @@ const v1Properties: INodeProperties[] = [
 				type: 'string',
 				default: 'data',
 				required: true,
-				displayOptions: show({ outputFormat: ['xmlFile', 'jsonFile'] }),
+				displayOptions: show({ outputFormat: ['xmlFile', 'jsonFile', 'csvFile'] }),
 			},
 			{
 				displayName: 'File Name',
@@ -568,7 +642,7 @@ const v1Properties: INodeProperties[] = [
 				default: '',
 				placeholder: 'output.xml',
 				description: 'Leave empty to name the file output with the matching extension',
-				displayOptions: show({ outputFormat: ['xmlFile', 'jsonFile'] }),
+				displayOptions: show({ outputFormat: ['xmlFile', 'jsonFile', 'csvFile'] }),
 			},
 			{
 				displayName: 'Root Element',
@@ -588,6 +662,74 @@ const v1Properties: INodeProperties[] = [
 				description: 'Whether to start the XML with &lt;?xml version="1.0" encoding="UTF-8"?&gt;',
 				displayOptions: show({ outputFormat: ['xml', 'xmlFile'] }),
 			},
+			{
+				displayName: 'CSV Options',
+				name: 'csvOptions',
+				type: 'collection',
+				placeholder: 'Add option',
+				default: {},
+				displayOptions: show({ outputFormat: ['csv', 'csvFile'] }),
+				options: [
+					{ displayName: 'Delimiter', name: 'csvDelimiter', type: 'string', default: ',' },
+					{
+						displayName: 'Escape Formulas',
+						name: 'csvEscapeFormulas',
+						type: 'boolean',
+						default: false,
+						description:
+							"Whether to put ' before values starting with =, +, -, @, tab or CR so spreadsheets don't run them as formulas (CSV injection)",
+					},
+					{
+						displayName: 'Header Row',
+						name: 'csvHeader',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to start the CSV with a row of column names',
+					},
+					{
+						displayName: 'Line Ending',
+						name: 'csvLineEnding',
+						type: 'options',
+						options: [
+							{ name: 'LF', value: 'lf' },
+							{ name: 'CRLF', value: 'crlf' },
+						],
+						default: 'lf',
+					},
+					{
+						displayName: 'One CSV for All Items',
+						name: 'csvCombine',
+						type: 'boolean',
+						default: true,
+						description: 'Whether to put every item into one CSV document, instead of one CSV per item',
+					},
+				],
+			},
+			{
+				displayName: 'Options',
+				name: 'fieldOptions',
+				type: 'collection',
+				placeholder: 'Add option',
+				default: {},
+				displayOptions: show({ definitionMode: ['fields'], mappingLayout: ['fields'] }),
+				options: [
+					{
+						displayName: 'Convert Types From Profile',
+						name: 'convertTypes',
+						type: 'boolean',
+						default: true,
+						description:
+							'Whether to turn values into numbers or booleans where the profile says so. Values that cannot be converted are kept as they are.',
+					},
+					{
+						displayName: 'Keep Empty Values',
+						name: 'keepEmpty',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to write target fields whose value is empty, instead of leaving them out',
+					},
+				],
+			},
 		];
 
 function forVersions(properties: INodeProperties[], versions: number[]): INodeProperties[] {
@@ -606,11 +748,13 @@ export class DataMapper implements INodeType {
 		name: 'dataMapper',
 		icon: { light: 'file:mapper.svg', dark: 'file:mapper.dark.svg' },
 		group: ['transform'],
+		// Version 1 (classic field mappings) is the default. Version 2 (the visual drag-and-drop
+		// mapper) stays available so nodes already built with it keep working.
 		version: [1, 2],
-		defaultVersion: 2,
+		defaultVersion: 1,
 		subtitle:
 			'={{ $parameter["targetFormat"] ? "Map to " + $parameter["targetFormat"].toUpperCase() : $parameter["definitionMode"] === "auto" ? "Auto-map from profile" : $parameter["definitionMode"] === "json" ? "JSON definition" : "Field mappings" }}',
-		description: 'Drag and drop incoming data onto a target profile and output XML, JSON or CSV',
+		description: 'Map and transform data between structures and output XML, JSON or CSV',
 		defaults: {
 			name: 'Data Mapper',
 		},
@@ -675,19 +819,31 @@ export class DataMapper implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const profileCache = new Map<string, Profile | undefined>();
+		const format0 = this.getNodeParameter('outputFormat', 0, 'json') as OutputFormat;
+		const combineCsv =
+			(format0 === 'csv' || format0 === 'csvFile') &&
+			(this.getNodeParameter('csvOptions.csvCombine', 0, true) as boolean) !== false;
+		const csvRecords: Array<{ mapped: Record<string, unknown>; index: number }> = [];
+		let csvProfile: Profile | undefined;
 
 		for (let i = 0; i < items.length; i++) {
 			try {
 				const input = await readInput(this, items[i], i);
-				const { rules, report } = await buildRules(this, i, input, profileCache);
+				const { rules, report, profile, order } = await buildRules(this, i, input, profileCache);
 				const unmapped = this.getNodeParameter('unmapped', i) as 'drop' | 'keep';
 				const start =
 					unmapped === 'keep' && input && typeof input === 'object' && !Array.isArray(input)
 						? structuredClone(input as Record<string, unknown>)
 						: {};
-				const mapped = applyMappings(input, rules, start);
+				let mapped = applyMappings(input, rules, start);
+				if (order && profile) mapped = orderByProfile(mapped, profile);
 				if (report) mapped._autoMap = report;
-				returnData.push(await writeOutput(this, mapped, i));
+				if (combineCsv) {
+					csvRecords.push({ mapped, index: i });
+					csvProfile ??= profile;
+					continue;
+				}
+				returnData.push(await writeOutput(this, mapped, i, profile));
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({ json: { error: error.message }, pairedItem: { item: i } });
@@ -705,6 +861,17 @@ export class DataMapper implements INodeType {
 									: 'Unexpected error while mapping this item',
 						});
 			}
+		}
+
+		if (combineCsv && csvRecords.length > 0) {
+			const output = await csvOutput(
+				this,
+				csvRecords.map((r) => r.mapped),
+				csvProfile,
+				0,
+				csvRecords.map((r) => ({ item: r.index })),
+			);
+			returnData.push(output);
 		}
 
 		return [returnData];
@@ -838,6 +1005,40 @@ interface BuiltRules {
 	rules: MappingRule[];
 	profile?: Profile;
 	report?: IDataObject;
+	/** When true, order the mapped output by the target profile's field order (resource-mapper layout). */
+	order?: boolean;
+}
+
+interface FieldTransformUi {
+	targetField?: string;
+	transform?: Transform;
+	separator?: string;
+	decimals?: number;
+	dateInputFormat?: string;
+	dateOutputFormat?: string;
+	lookupTable?: string;
+	lookupFallback?: LookupFallback;
+	lookupDefault?: string;
+}
+
+/** Applies the per-field transforms (Fill Target Fields layout) onto the rules whose target matches. */
+function applyFieldTransforms(ctx: IExecuteFunctions, itemIndex: number, rules: MappingRule[]): void {
+	const items = (ctx.getNodeParameter('fieldTransforms.item', itemIndex, []) as FieldTransformUi[]).filter(Boolean);
+	for (const it of items) {
+		if (!it.targetField || !it.transform || it.transform === 'none') continue;
+		for (const rule of rules) {
+			if (rule.target !== it.targetField) continue;
+			rule.transform = it.transform;
+			rule.separator = it.separator;
+			rule.decimals = it.decimals;
+			rule.dateInputFormat = it.dateInputFormat;
+			rule.dateOutputFormat = it.dateOutputFormat;
+			rule.lookup = it.lookupTable;
+			rule.lookupFallback = it.lookupFallback;
+			rule.lookupDefault = it.lookupDefault;
+			rule.lenient = true;
+		}
+	}
 }
 
 async function buildRules(
@@ -872,37 +1073,78 @@ async function buildRules(
 	}
 
 	// fields mode
+	if ((ctx.getNodeParameter('mappingLayout', itemIndex, 'list') as string) === 'fields') {
+		const raw = (ctx.getNodeParameter('columnMapping.value', itemIndex, {}, {
+			rawExpressions: true,
+			skipValidation: true,
+		}) ?? {}) as Record<string, unknown>;
+		const rm = ctx.getNodeParameter('columnMapping', itemIndex, undefined, { skipValidation: true }) as
+			| { value?: Record<string, unknown> }
+			| undefined;
+		const resolved = (rm?.value ?? {}) as Record<string, unknown>;
+		const fo = ctx.getNodeParameter('fieldOptions', itemIndex, {}) as IDataObject;
+		const rules = buildDropRules(raw, resolved, profile, {
+			convertTypes: fo.convertTypes !== false,
+			keepEmpty: fo.keepEmpty === true,
+		});
+		applyFieldTransforms(ctx, itemIndex, rules);
+		return { rules, profile, order: true };
+
+	}
+
 	const entries = (ctx.getNodeParameter('mappings.mapping', itemIndex, []) as UiMapping[]).filter(Boolean);
 	const rules = entries.map((m) => uiMappingToRule(m, ctx, itemIndex));
 
 	if (profile && (ctx.getNodeParameter('autoMapRemaining', itemIndex, false) as boolean) === true) {
 		const covered = new Set(rules.map((r) => r.target));
 		const remaining: Profile = { ...profile, fields: profile.fields.filter((f) => !covered.has(f.path)) };
-		const result = autoMap(flattenSource(input), remaining, {
-			threshold: 0.6,
-			strategy: 'fuzzy',
-			caseSensitive: false,
-			reuseSources: false,
-			unmatched: 'skip',
-			synonyms: parseSynonyms(
-				(ctx.getNodeParameter('autoOptions.synonyms', itemIndex, '') as string) || undefined,
-			),
-		});
+		const result = autoMap(flattenSource(input), remaining, readAutoOptions(ctx, itemIndex));
 		rules.push(...result.rules);
+		if ((ctx.getNodeParameter('autoOptions.report', itemIndex, false) as boolean) === true) {
+			return {
+				rules,
+				profile,
+				report: { matched: result.matched as unknown as IDataObject[], unmatched: result.unmatched },
+			};
+		}
 	}
 
 	return { rules, profile };
+}
+
+async function csvOutput(
+	ctx: IExecuteFunctions,
+	records: Record<string, unknown>[],
+	profile: Profile | undefined,
+	itemIndex: number,
+	pairedItem: Array<{ item: number }>,
+): Promise<INodeExecutionData> {
+	const o = ctx.getNodeParameter('csvOptions', itemIndex, {}) as IDataObject;
+	const text = csvText(records, profile, o);
+	if ((ctx.getNodeParameter('outputFormat', itemIndex) as OutputFormat) === 'csvFile') {
+		const field = ctx.getNodeParameter('outputBinaryField', itemIndex) as string;
+		const fileName = (ctx.getNodeParameter('fileName', itemIndex, '') as string) || 'output.csv';
+		const binary = await ctx.helpers.prepareBinaryData(Buffer.from(text, 'utf8'), fileName, 'text/csv');
+		return { json: {}, binary: { [field]: binary }, pairedItem };
+	}
+	const field = (ctx.getNodeParameter('outputField', itemIndex, '') as string) || 'csv';
+	return { json: { [field]: text }, pairedItem };
 }
 
 async function writeOutput(
 	ctx: IExecuteFunctions,
 	mapped: Record<string, unknown>,
 	itemIndex: number,
+	profile?: Profile,
 ): Promise<INodeExecutionData> {
 	const format = ctx.getNodeParameter('outputFormat', itemIndex) as OutputFormat;
 	const pairedItem = { item: itemIndex };
 
 	if (format === 'json') return { json: mapped as IDataObject, pairedItem };
+
+	if (format === 'csv' || format === 'csvFile') {
+		return csvOutput(ctx, [mapped], profile, itemIndex, [pairedItem]);
+	}
 
 	if (format === 'jsonFile') {
 		const field = ctx.getNodeParameter('outputBinaryField', itemIndex) as string;
@@ -923,7 +1165,7 @@ async function writeOutput(
 	});
 
 	if (format === 'xml') {
-		const field = ctx.getNodeParameter('outputField', itemIndex) as string;
+		const field = (ctx.getNodeParameter('outputField', itemIndex, '') as string) || 'xml';
 		return { json: { [field]: xml }, pairedItem };
 	}
 

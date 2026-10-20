@@ -17,8 +17,8 @@
 
 ## At a glance
 
-- **Visual mapper:** drag Input-panel fields onto target-profile fields, or Map Automatically.
-- **Classic mode (v1):** paths with transforms, auto-map, or a reusable JSON definition.
+- **Classic mapper (default):** add a mapping per field — source path or profile field or fixed value → target path or profile field — with transforms, auto-map, or a reusable JSON definition.
+- **Visual mapper (node version 2):** drag Input-panel fields onto target-profile fields. Kept for nodes already built with it; not the default for new nodes.
 - **Inputs:** item JSON, or JSON/XML from a field or file.
 - **Outputs:** JSON, XML or CSV, as an item field or a file.
 - **No runtime dependencies** — copy it straight into an n8n `custom` folder.

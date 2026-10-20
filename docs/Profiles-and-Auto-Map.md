@@ -24,7 +24,7 @@ A **target profile** describes the structure you want to map into. The node read
 
 ## Picking targets (manual mode)
 
-With **Define Mappings** = *Using Fields Below*, set a mapping's **Target** to *From Target Profile* and choose the field from the dropdown (it shows each field's path, whether it is a list, and its type). Use *Custom Path* to type a path the profile does not contain.
+With **Define Mappings** = *Map Each Column Manually*, set a mapping's **Target** to *From Target Profile* and choose the field from the dropdown (it shows each field's path, whether it is a list, and its type). Use *Custom Path* to type a path the profile does not contain.
 
 ## Auto-map
 
@@ -40,4 +40,4 @@ With **Define Mappings** = *Auto-Map From Profile*, the node matches each target
 | Custom Synonyms | | Extra `source=target` name matches for domain terms. |
 | Add Auto-Map Report | off | Adds an `_autoMap` field listing matched and unmatched fields. |
 
-Auto-map respects arrays and never maps a non-repeating source onto a repeating target. To tweak a few fields by hand, use *Using Fields Below* with **Auto-Map Remaining Target Fields** on — your manual mappings win, the rest are filled automatically.
+Auto-map respects arrays and never maps a non-repeating source onto a repeating target. To tweak a few fields by hand, use *Map Each Column Manually* with **Auto-Map Remaining Target Fields** on — your manual mappings win, the rest are filled automatically.

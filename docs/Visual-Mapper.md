@@ -1,5 +1,7 @@
 # Visual Mapper (drag and drop)
 
+> **Node version 2, not the default.** New Data Mapper nodes use the classic field mappings ([Mapping Reference](Mapping-Reference.md)). The visual mapper is kept for nodes already built with it. To build with it, keep or copy an existing version-2 node.
+
 New Data Mapper nodes (node version 2) are a visual mapper: the **target profile** defines the fields you map into, and the **Input panel** on the left is your source. Anything the previous node outputs can be mapped, with no source profile.
 
 ## Steps

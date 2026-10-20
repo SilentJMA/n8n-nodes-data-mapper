@@ -235,3 +235,39 @@ test('auto-map reads the target profile from an uploaded file', async () => {
 	assert.equal(out[0].json.orderId, 'Z9');
 	assert.equal(out[0].json.amount, 5);
 });
+
+test('v1: CSV output, combined with custom delimiter and escaping', async () => {
+	const [out] = await run(
+		{
+			...base,
+			definitionMode: 'json',
+			mappingJson: JSON.stringify([{ source: 'id', target: 'Id' }, { source: 'note', target: 'Note' }]),
+			outputFormat: 'csv',
+			outputField: 'csv',
+			csvOptions: { csvDelimiter: ',', csvCombine: true, csvEscapeFormulas: true },
+		},
+		[{ json: { id: 'A1', note: 'a, "b"' } }, { json: { id: 'B2', note: '=HACK()' } }],
+	);
+	assert.equal(out.length, 1);
+	assert.deepEqual(out[0].pairedItem, [{ item: 0 }, { item: 1 }]);
+	assert.equal(out[0].json.csv, 'Id,Note\nA1,"a, ""b"""\nB2,\'=HACK()\n');
+});
+
+test('v1: CSV File output, one file per item', async () => {
+	const [out] = await run(
+		{
+			...base,
+			definitionMode: 'json',
+			mappingJson: JSON.stringify([{ source: 'id', target: 'Id' }]),
+			outputFormat: 'csvFile',
+			outputBinaryField: 'data',
+			fileName: '',
+			csvOptions: { csvCombine: false },
+		},
+		[{ json: { id: 'A1' } }, { json: { id: 'B2' } }],
+	);
+	assert.equal(out.length, 2);
+	assert.equal(out[0].binary.data.fileName, 'output.csv');
+	assert.equal(out[0].binary.data.mimeType, 'text/csv');
+	assert.equal(out[0].binary.data.data, 'Id\nA1\n');
+});

@@ -180,3 +180,88 @@ test('v2: a sample-XML target profile supplies its root element automatically', 
 	);
 	assert.equal(out[0].json.xml, '<orders>\n  <order>\n    <country>NL</country>\n  </order>\n</orders>');
 });
+
+test('v1 "Fill Target Fields" layout: resource mapper with source-profile picks', async () => {
+	const node = new DataMapper();
+	const id = (p) => encodeFieldId(p);
+	const targetProfile = '{"order":{"id":"x","lines":[{"sku":"s","qty":1}]}}';
+	// each target field's value picked from the source profile (src:: prefix) or a fixed value
+	const value = {
+		[id('order.id')]: `src::Shop.Order.Header.Id`,
+		[id('order.lines[*].sku')]: `src::Shop.Order.Lines.Line.Code`,
+		[id('order.lines[*].qty')]: `src::Shop.Order.Lines.Line.Qty`,
+	};
+	const params = {
+		inputSource: 'field',
+		inputField: 'data',
+		inputFormat: 'xml',
+		definitionMode: 'fields',
+		mappingLayout: 'fields',
+		sourceProfile: sampleSource,
+		targetProfileSource: 'paste',
+		targetProfile,
+		targetProfileFormat: 'auto',
+		columnMapping: { mappingMode: 'defineBelow', value },
+		unmapped: 'drop',
+		outputFormat: 'json',
+	};
+	const ctx = {
+		getInputData: () => [{ json: { data: realOrder } }],
+		getNode: () => ({ name: 'Data Mapper', typeVersion: 1 }),
+		continueOnFail: () => false,
+		getNodeParameter(name, i, fb, opts) {
+			if (opts && opts.rawExpressions && name === 'columnMapping.value') return value;
+			const v = name.split('.').reduce((o, k) => (o == null ? undefined : o[k]), params);
+			return v === undefined ? fb : v;
+		},
+		helpers: {},
+	};
+	const [out] = await node.execute.call(ctx);
+	assert.deepEqual(out[0].json, {
+		order: { id: '5002', lines: [{ sku: 'A-1', qty: 1 }, { sku: 'B-2', qty: 3 }] },
+	});
+});
+
+test('getProfileFields resolves the source dropdown using v1 parameter names', async () => {
+	const node = new DataMapper();
+	const fields = await node.methods.resourceMapping.getProfileFields.call({
+		getCurrentNodeParameter: (n) =>
+			({ targetProfile: '{"order":{"id":"x"}}', sourceProfile: sampleSource, sourceProfileFormat: 'auto' })[n],
+	});
+	// each target field becomes an options dropdown seeded from the source profile
+	assert.equal(fields.fields[0].type, 'options');
+	assert.ok(fields.fields[0].options.some((o) => o.value === 'src::Shop.Order.Header.Id'));
+});
+
+
+test('v1 Fill Target Fields: Transform a Field reformats the mapped value', async () => {
+	const node = new DataMapper();
+	const id = (p) => encodeFieldId(p);
+	const value = { [id('name')]: 'src::Shop.Order.Delivery.Country', [id('date')]: 'src::Shop.Order.Header.Id' };
+	const params = {
+		inputSource: 'field', inputField: 'data', inputFormat: 'xml',
+		definitionMode: 'fields', mappingLayout: 'fields',
+		sourceProfile: sampleSource, targetProfileSource: 'paste',
+		targetProfile: '{"name":"x","date":"x"}', targetProfileFormat: 'auto',
+		columnMapping: { mappingMode: 'defineBelow', value },
+		fieldTransforms: { item: [
+			{ targetField: 'name', transform: 'lowercase' },
+			{ targetField: 'date', transform: 'date', dateInputFormat: 'yyyy', dateOutputFormat: 'yyyy-MM-dd' },
+		] },
+		unmapped: 'drop', outputFormat: 'json',
+	};
+	const ctx = {
+		getInputData: () => [{ json: { data: realOrder } }],
+		getNode: () => ({ name: 'Data Mapper', typeVersion: 1 }),
+		continueOnFail: () => false,
+		getNodeParameter(name, i, fb, opts) {
+			if (opts && opts.rawExpressions && name === 'columnMapping.value') return value;
+			const v = name.split('.').reduce((o, k) => (o == null ? undefined : o[k]), params);
+			return v === undefined ? fb : v;
+		},
+		helpers: {},
+	};
+	const [out] = await node.execute.call(ctx);
+	assert.equal(out[0].json.name, 'fr');
+	assert.equal(out[0].json.date, '5002-01-01');
+});

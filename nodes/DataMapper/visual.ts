@@ -35,7 +35,7 @@ type OutputAs = 'item' | 'file';
 export const visualProperties: INodeProperties[] = [
 	{
 		displayName:
-			'Paste your target profile, then fill each target field: drag a field from the INPUT panel, pick one from the Source Profile dropdown, or write an expression. Or switch to "Map Automatically" to match them by name.',
+			'Paste a Target Profile to list the target fields. To map the incoming data: set Mapping Column Mode to "Map Automatically" (match by name), or in manual mode drag a field from the INPUT panel into a box, write an expression, or paste a Source Profile to pick source fields from a dropdown.',
 		name: 'howTo',
 		type: 'notice',
 		default: '',
@@ -96,7 +96,7 @@ export const visualProperties: INodeProperties[] = [
 		default: '',
 		placeholder: 'Optional: paste the structure of the incoming data, e.g. a sample order',
 		description:
-			'Optional. Describes the incoming data. When set, every target field gets a dropdown of source fields to pick from (you can still switch a field to an expression).',
+			'Optional, for manual mapping. Paste a sample of the incoming data (one item). Every target field then gets a dropdown of source fields to pick from. Without it, drag fields from the INPUT panel into the boxes or write expressions. n8n cannot list the incoming fields automatically, which is why a sample is needed for the dropdown.',
 	},
 	{
 		displayName: 'Target Profile',
@@ -444,7 +444,9 @@ export async function getProfileFields(this: ILoadOptionsFunctions): Promise<Res
 
 	let format: ProfileFormat = 'auto';
 	try {
-		format = (this.getCurrentNodeParameter('options.profileFormat') as ProfileFormat) || 'auto';
+		format =
+			((this.getCurrentNodeParameter('options.profileFormat') ??
+				this.getCurrentNodeParameter('targetProfileFormat')) as ProfileFormat) || 'auto';
 	} catch {
 		format = 'auto';
 	}
@@ -477,7 +479,9 @@ function loadSourceOptions(ctx: ILoadOptionsFunctions): INodePropertyOptions[] |
 	let format: ProfileFormat = 'auto';
 	try {
 		text = String(ctx.getCurrentNodeParameter('sourceProfile') ?? '').trim();
-		format = (ctx.getCurrentNodeParameter('options.sourceProfileFormat') as ProfileFormat) || 'auto';
+		format =
+			((ctx.getCurrentNodeParameter('options.sourceProfileFormat') ??
+				ctx.getCurrentNodeParameter('sourceProfileFormat')) as ProfileFormat) || 'auto';
 	} catch {
 		return undefined;
 	}
@@ -729,7 +733,7 @@ export function orderByProfile(mapped: Record<string, unknown>, profile: Profile
 	return reorder(mapped, profileOrder(profile)) as Record<string, unknown>;
 }
 
-function csvColumns(profile: Profile | undefined, records: unknown[]): CsvColumn[] {
+export function csvColumns(profile: Profile | undefined, records: unknown[]): CsvColumn[] {
 	if (profile && profile.fields.length > 0) {
 		return profile.fields.map((field) => ({
 			path: field.path,
@@ -748,7 +752,7 @@ function csvColumns(profile: Profile | undefined, records: unknown[]): CsvColumn
 	return columns;
 }
 
-function csvText(records: unknown[], profile: Profile | undefined, options: IDataObject): string {
+export function csvText(records: unknown[], profile: Profile | undefined, options: IDataObject): string {
 	return toCsv(records, csvColumns(profile, records), {
 		delimiter: String(options.csvDelimiter ?? ',') || ',',
 		header: options.csvHeader !== false,
