@@ -110,6 +110,7 @@ CSV columns follow the profile. By default every incoming item becomes rows in *
 | --- | --- | --- |
 | Add Auto-Map Report | off | Adds `_autoMap` with matched and unmatched fields (Map Automatically, JSON output). |
 | Auto-Map Minimum Confidence | 0.6 | How close names must be, 0 to 1. |
+| Custom Synonyms | | Extra `source=target` name matches, one per line or a JSON object. |
 | Convert Types From Profile | on | Turn values into numbers/booleans where the profile says so. |
 | CSV Delimiter / Header Row / Line Ending | `,` / on / LF | CSV formatting. |
 | Escape CSV Formulas | off | Put `'` in front of values starting with `=`, `+`, `-`, `@`, tab or CR, so spreadsheets don't run them as formulas (CSV injection). |

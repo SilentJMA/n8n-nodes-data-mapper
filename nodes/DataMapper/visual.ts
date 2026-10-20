@@ -17,6 +17,7 @@ import {
 	autoMap,
 	flattenSource,
 	parseProfile,
+	parseSynonyms,
 	ProfileError,
 	sourceFields,
 	type FieldType,
@@ -223,6 +224,16 @@ export const visualProperties: INodeProperties[] = [
 					{ name: 'CRLF', value: 'crlf' },
 				],
 				default: 'lf',
+			},
+			{
+				displayName: 'Custom Synonyms',
+				name: 'synonyms',
+				type: 'string',
+				typeOptions: { rows: 3 },
+				default: '',
+				placeholder: 'menge=quantity\nartikel=article',
+				description:
+					'Extra name matches for Map Automatically, one source=target per line (or a JSON object). Common abbreviations such as Qty=quantity are already built in.',
 			},
 			{
 				displayName: 'Escape CSV Formulas',
@@ -655,6 +666,7 @@ function buildRules(
 			caseSensitive: false,
 			reuseSources: false,
 			unmatched: options.keepEmpty ? 'null' : 'skip',
+			synonyms: parseSynonyms(options.synonyms as string | undefined),
 		});
 		const rules = result.rules.map((rule) => ({
 			...rule,

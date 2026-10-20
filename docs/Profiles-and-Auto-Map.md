@@ -28,7 +28,7 @@ With **Define Mappings** = *Using Fields Below*, set a mapping's **Target** to *
 
 ## Auto-map
 
-With **Define Mappings** = *Auto-Map From Profile*, the node matches each target field to the best source field by name and applies the target's type as a transform.
+With **Define Mappings** = *Auto-Map From Profile*, the node matches each target field to the best source field by name (expanding common abbreviations such as Qty → quantity) and applies the target's type as a transform.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -37,6 +37,7 @@ With **Define Mappings** = *Auto-Map From Profile*, the node matches each target
 | Case Sensitive | off | Names must match case. |
 | Reuse a Source for Several Targets | off | One source may fill several targets. |
 | Unmatched Target Fields | Leave Out | Or *Set to Null*. |
+| Custom Synonyms | | Extra `source=target` name matches for domain terms. |
 | Add Auto-Map Report | off | Adds an `_autoMap` field listing matched and unmatched fields. |
 
 Auto-map respects arrays and never maps a non-repeating source onto a repeating target. To tweak a few fields by hand, use *Using Fields Below* with **Auto-Map Remaining Target Fields** on — your manual mappings win, the rest are filled automatically.

@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-10-20
+
+### Fixed
+
+- **Auto-map now matches common abbreviations.** Names are compared token by token with built-in abbreviations and synonyms, so Qty maps to quantity, Amt to amount, OrderNo to orderNumber, fname to firstName, zip to postalCode, and British/American spellings line up. Previously these were left unmatched.
+
+### Added
+
+- **Custom Synonyms** option for auto-map (and Map Automatically): add your own `source=target` name matches, one per line or as a JSON object.
+
+[0.4.1]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.1
+
 ## [0.4.0] - 2026-10-20
 
 ### Added

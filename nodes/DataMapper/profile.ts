@@ -462,8 +462,112 @@ function lastSegment(path: string): string {
 	return names.length ? names[names.length - 1] : path;
 }
 
-function normalize(name: string): string {
-	return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+/**
+ * Common field-name abbreviations and synonyms, so auto-map pairs Qty with quantity, Amt with
+ * amount, and so on. Each token maps to a canonical token; names that reduce to the same canonical
+ * string are treated as the same field. Users can add their own with the Custom Synonyms option.
+ */
+const ABBREVIATIONS: Record<string, string> = {
+	qty: 'quantity',
+	amt: 'amount',
+	no: 'number',
+	nr: 'number',
+	nbr: 'number',
+	num: 'number',
+	desc: 'description',
+	descr: 'description',
+	addr: 'address',
+	tel: 'phone',
+	ph: 'phone',
+	dob: 'birthdate',
+	birthday: 'birthdate',
+	fname: 'firstname',
+	forename: 'firstname',
+	givenname: 'firstname',
+	lname: 'lastname',
+	surname: 'lastname',
+	familyname: 'lastname',
+	cust: 'customer',
+	org: 'organization',
+	organisation: 'organization',
+	zip: 'postalcode',
+	postcode: 'postalcode',
+	postal: 'postalcode',
+	ccy: 'currency',
+	cur: 'currency',
+	curr: 'currency',
+	tot: 'total',
+	pct: 'percent',
+	percentage: 'percent',
+	qty_ordered: 'quantity',
+	 std: 'standard',
+};
+
+/** Splits a name into lowercase word tokens, handling camelCase, digits and separators. */
+function tokenize(name: string): string[] {
+	return name
+		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+		.replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+		.split(/[^A-Za-z0-9]+/)
+		.filter(Boolean)
+		.map((t) => t.toLowerCase());
+}
+
+/** Reduces a name to a canonical string by expanding each token through the synonym maps. */
+function canonical(name: string, synonyms: Record<string, string>): string {
+	return tokenize(name)
+		.map((t) => synonyms[t] ?? ABBREVIATIONS[t] ?? t)
+		.join('');
+}
+
+function isSubsequence(short: string, long: string): boolean {
+	let i = 0;
+	for (let j = 0; j < long.length && i < short.length; j++) if (long[j] === short[i]) i++;
+	return i === short.length;
+}
+
+/** Name-similarity score in [0, 1] on the canonical forms, with a bonus for containment or an abbreviation-style subsequence. */
+function nameScore(a: string, b: string, synonyms: Record<string, string>): number {
+	const ca = canonical(a, synonyms);
+	const cb = canonical(b, synonyms);
+	if (ca === '' || cb === '') return 0;
+	if (ca === cb) return 1;
+	let score = 1 - levenshtein(ca, cb) / Math.max(ca.length, cb.length);
+	const [short, long] = ca.length <= cb.length ? [ca, cb] : [cb, ca];
+	if (long.includes(short)) score += 0.15;
+	else if (short.length >= 2 && isSubsequence(short, long)) score += 0.2;
+	return Math.min(0.99, score);
+}
+
+/** Parses user synonyms ("qty=quantity" lines or a JSON object) into a token→canonical map. */
+export function parseSynonyms(input: string | Record<string, string> | undefined): Record<string, string> {
+	const result: Record<string, string> = {};
+	if (!input) return result;
+	const token = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+	const add = (k: string, v: string) => {
+		const key = token(k);
+		const value = token(v);
+		if (key && value) setOwn(result, key, value);
+	};
+	if (typeof input === 'object') {
+		for (const [k, v] of Object.entries(input)) add(k, String(v));
+		return result;
+	}
+	const trimmed = input.trim();
+	if (trimmed === '') return result;
+	if (trimmed.startsWith('{')) {
+		try {
+			for (const [k, v] of Object.entries(JSON.parse(trimmed) as Record<string, unknown>)) add(k, String(v));
+			return result;
+		} catch {
+			return result;
+		}
+	}
+	for (const line of trimmed.split(/\r?\n/)) {
+		const eq = line.indexOf('=');
+		if (eq !== -1) add(line.slice(0, eq), line.slice(eq + 1));
+	}
+	return result;
 }
 
 function countStars(path: string): number {
@@ -485,15 +589,6 @@ function levenshtein(a: string, b: string): number {
 	return prev[b.length];
 }
 
-function similarity(a: string, b: string): number {
-	if (a === '' || b === '') return 0;
-	if (a === b) return 1;
-	const distance = levenshtein(a, b);
-	const ratio = 1 - distance / Math.max(a.length, b.length);
-	// Give a boost when one name contains the other (e.g. "id" within "orderid").
-	const contains = a.includes(b) || b.includes(a) ? 0.15 : 0;
-	return Math.min(1, ratio + contains);
-}
 
 export interface AutoMapOptions {
 	threshold: number;
@@ -501,6 +596,8 @@ export interface AutoMapOptions {
 	caseSensitive: boolean;
 	reuseSources: boolean;
 	unmatched: 'skip' | 'null';
+	/** Extra token synonyms, from the Custom Synonyms option, as token → canonical token. */
+	synonyms?: Record<string, string>;
 }
 
 export interface AutoMapResult {
@@ -522,29 +619,33 @@ export function autoMap(sources: SourcePath[], target: Profile, options: AutoMap
 	const rules: MappingRule[] = [];
 	const used = new Set<string>();
 
-	const prep = (s: string) => (options.caseSensitive ? s : s.toLowerCase());
+	const synonyms = options.synonyms ?? {};
+	const segName = (path: string, i: number) => {
+		const segs = path.replace(/\[\*\]/g, '').split('.').filter(Boolean);
+		return segs[segs.length + i] ?? '';
+	};
+	const nameOf = (s: string) => (options.caseSensitive ? s : s.toLowerCase());
 
 	for (const field of target.fields) {
 		const targetStars = countStars(field.path);
-		const targetKey = options.caseSensitive ? field.name : normalize(field.name);
-		const targetTokens = field.path.replace(/\[\*\]/g, '').split('.').filter(Boolean).map((t) => (options.caseSensitive ? t : normalize(t)));
 
 		let best: { source: SourcePath; score: number } | undefined;
 		for (const source of sources) {
 			if (!options.reuseSources && used.has(source.path)) continue;
 			if (countStars(source.path) < targetStars) continue; // cannot satisfy a repeating target from a non-repeating source
 
-			const sourceKey = options.caseSensitive ? source.name : normalize(source.name);
-			let score = options.caseSensitive ? (sourceKey === targetKey ? 1 : similarity(prep(source.name), prep(field.name))) : similarity(sourceKey, targetKey);
-
-			// Reward when a parent segment also lines up, so order.city beats shipping.city for order.city.
-			const sourceTokens = source.path.replace(/\[\*\]/g, '').split('.').filter(Boolean).map((t) => (options.caseSensitive ? t : normalize(t)));
-			if (targetTokens.length > 1 && sourceTokens.length > 1) {
-				const tParent = targetTokens[targetTokens.length - 2];
-				const sParent = sourceTokens[sourceTokens.length - 2];
-				if (tParent === sParent) score = Math.min(1, score + 0.1);
+			let score: number;
+			if (options.strategy === 'exact') {
+				// Exact means the names match literally (after case folding), not via abbreviations.
+				score = nameOf(source.name) === nameOf(field.name) ? 1 : 0;
+				if (score < 1) continue;
+			} else {
+				score = nameScore(source.name, field.name, synonyms);
+				// Reward when a parent segment also lines up, so order.city beats shipping.city for order.city.
+				if (nameScore(segName(source.path, -2), segName(field.path, -2), synonyms) >= 0.99 && segName(field.path, -2) !== '') {
+					score = Math.min(1, score + 0.1);
+				}
 			}
-			if (options.strategy === 'exact' && score < 1) continue;
 			if (!best || score > best.score) best = { source, score };
 		}
 

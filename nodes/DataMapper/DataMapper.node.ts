@@ -23,6 +23,7 @@ import {
 	autoMap,
 	flattenSource,
 	parseProfile,
+	parseSynonyms,
 	ProfileError,
 	sourceFields,
 	type AutoMapOptions,
@@ -471,6 +472,16 @@ const v1Properties: INodeProperties[] = [
 						description: 'Whether field names must match in the same letter case',
 					},
 					{
+						displayName: 'Custom Synonyms',
+						name: 'synonyms',
+						type: 'string',
+						typeOptions: { rows: 3 },
+						default: '',
+						placeholder: 'menge=quantity\nartikel=article',
+						description:
+							'Extra name matches for auto-map, one source=target per line (or a JSON object). Qty=quantity, Amt=amount and other common abbreviations are already built in.',
+					},
+					{
 						displayName: 'Match',
 						name: 'strategy',
 						type: 'options',
@@ -779,6 +790,7 @@ function readAutoOptions(ctx: IExecuteFunctions, itemIndex: number): AutoMapOpti
 		caseSensitive: o.caseSensitive === true,
 		reuseSources: o.reuseSources === true,
 		unmatched: (o.unmatched as AutoMapOptions['unmatched']) ?? 'skip',
+		synonyms: parseSynonyms(o.synonyms as string | undefined),
 	};
 }
 
@@ -872,6 +884,9 @@ async function buildRules(
 			caseSensitive: false,
 			reuseSources: false,
 			unmatched: 'skip',
+			synonyms: parseSynonyms(
+				(ctx.getNodeParameter('autoOptions.synonyms', itemIndex, '') as string) || undefined,
+			),
 		});
 		rules.push(...result.rules);
 	}

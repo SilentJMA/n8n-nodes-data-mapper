@@ -36,7 +36,7 @@ Target fields are shown as a tree:
 
 ## Map Automatically
 
-Matches each target field to the most similar source field name, ignoring case and punctuation (`OrderID` → `orderId`, `Qty` → `quantity`), and keeps lists aligned (`Items[*].SKU` → `lines[*].sku`). Tune it with **Auto-Map Minimum Confidence**, and turn on **Add Auto-Map Report** to see what matched.
+Matches each target field to the most similar source field name. It ignores case and punctuation, expands common abbreviations (`Qty` → `quantity`, `Amt` → `amount`, `OrderNo` → `orderNumber`, `fname` → `firstName`, `zip` → `postalCode`), matches British/American spellings, and keeps lists aligned (`Items[*].SKU` → `lines[*].sku`). Add domain terms with **Custom Synonyms** (`menge=quantity`, one per line or a JSON object). Tune **Auto-Map Minimum Confidence**, and turn on **Add Auto-Map Report** to see what matched.
 
 ## Output order and types
 
