@@ -32,6 +32,8 @@ Use it to turn an API response into a partner's XML order, shape database rows i
 
 ![Data Mapper producing JSON output](docs/images/json-mapping.webp)
 
+<img width="2340" height="1362" alt="image" src="https://github.com/user-attachments/assets/81a3540f-9aee-40b7-8510-c8a2cbe39bcb" />
+
 **Building XML with transforms and added fields** — attributes, nested elements, repeated items, a country lookup, rounding and a generated timestamp:
 
 ![Data Mapper producing XML output](docs/images/xml-output.webp)
