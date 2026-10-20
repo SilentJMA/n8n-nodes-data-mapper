@@ -25,15 +25,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 [0.4.0]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.0
 
-## [0.3.1] - 2026-10-20
+## 0.3.1 - 2026-10-20 (not released separately; included in 0.4.0)
 
 ### Fixed
 
 - A list expression on a repeating target now skips positions without a value (`null`/`undefined`) instead of writing empty elements, so optional blocks such as a per-line discount only appear on the lines that have one.
 
-[0.3.1]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.3.1
-
-## [0.3.0] - 2026-10-20
+## 0.3.0 - 2026-10-20 (not released separately; included in 0.4.0)
 
 ### Added
 
@@ -46,8 +44,6 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - Existing workflows keep node version 1 (classic mode) unchanged.
-
-[0.3.0]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.3.0
 
 ## [0.2.0] - 2026-10-17
 
