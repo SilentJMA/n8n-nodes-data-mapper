@@ -1,5 +1,17 @@
 import { parseXml, XmlParseError, type XmlElement, type XmlNode } from './xml';
-import type { MappingRule, Transform } from './mapping';
+import { getOwn, parsePath, setOwn, type MappingRule, type Transform } from './mapping';
+
+/** Data nested deeper than this is not explored when listing fields (protects the stack). */
+const MAX_FIELD_DEPTH = 200;
+
+const hasOwn = (container: object, key: string) => Object.prototype.hasOwnProperty.call(container, key);
+
+/** Appends a key to a path, quoting keys that contain dots, brackets, spaces or quotes. */
+function joinKey(prefix: string, key: string): string {
+	if (/^[^.[\]\s"']+$/.test(key)) return prefix ? `${prefix}.${key}` : key;
+	const quoted = key.includes('"') ? `['${key}']` : `["${key}"]`;
+	return `${prefix}${quoted}`;
+}
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'datetime';
 export type ProfileFormat = 'auto' | 'component' | 'jsonSchema' | 'sampleJson' | 'sampleXml' | 'xsd' | 'csv';
@@ -147,8 +159,7 @@ function parseComponentXml(xmlProfile: XmlElement): Profile {
 			if (localName(node.name) !== 'XMLElement' || !name) continue;
 			if (isRoot && rootName === undefined) rootName = name;
 			const repeating = node.attributes.maxOccurs === '-1';
-			const segment = `${name}${repeating ? '[*]' : ''}`;
-			const path = prefix ? `${prefix}.${segment}` : segment;
+			const path = `${joinKey(prefix, name)}${repeating ? '[*]' : ''}`;
 			const kids = childElements(node).filter((c) => localName(c.name) === 'XMLElement');
 			const attrs = childElements(node).filter((c) => localName(c.name) === 'XMLAttribute');
 			const hasChildElements = kids.length > 0;
@@ -157,7 +168,7 @@ function parseComponentXml(xmlProfile: XmlElement): Profile {
 			}
 			for (const attr of attrs) {
 				const attrName = attr.attributes.name;
-				if (attrName) fields.push({ path: `${path}.$.${attrName}`, name: attrName, type: dataTypeToField(attr.attributes.dataType), repeating: false, required: attr.attributes.required === 'true' });
+				if (attrName) fields.push({ path: joinKey(`${path}.$`, attrName), name: attrName, type: dataTypeToField(attr.attributes.dataType), repeating: false, required: attr.attributes.required === 'true' });
 			}
 			if (hasChildElements) walk(node, path, false);
 		}
@@ -181,13 +192,13 @@ function parseComponentJson(jsonProfile: XmlElement): Profile {
 			if (array) {
 				const arrayElement = childElements(array).find((c) => localName(c.name) === 'JSONArrayElement');
 				const arrObject = arrayElement && childElements(arrayElement).find((c) => localName(c.name) === 'JSONObject');
-				const path = `${prefix}${name}[*]`;
-				if (arrObject) walkObject(arrObject, `${path}.`);
+				const path = `${joinKey(prefix, name)}[*]`;
+				if (arrObject) walkObject(arrObject, path);
 				else fields.push({ path, name, type: dataTypeToField(arrayElement?.attributes.dataType), repeating: true, required: false });
 			} else if (nestedObject) {
-				walkObject(nestedObject, `${prefix}${name}.`);
+				walkObject(nestedObject, joinKey(prefix, name));
 			} else {
-				fields.push({ path: `${prefix}${name}`, name, type: dataTypeToField(entry.attributes.dataType), repeating: false, required: false });
+				fields.push({ path: joinKey(prefix, name), name, type: dataTypeToField(entry.attributes.dataType), repeating: false, required: false });
 			}
 		}
 	};
@@ -213,7 +224,7 @@ function parseComponentFlatFile(flatProfile: XmlElement): Profile {
 			if (localName(el.name) !== 'FlatFileElement') continue;
 			const name = el.attributes.name;
 			if (!name || el.attributes.isMappable === 'false') continue;
-			fields.push({ path: multi ? `${recordName}.${name}` : name, name, type: dataTypeToField(el.attributes.dataType), repeating: false, required: el.attributes.mandatory === 'true' });
+			fields.push({ path: multi ? joinKey(joinKey('', recordName), name) : joinKey('', name), name, type: dataTypeToField(el.attributes.dataType), repeating: false, required: el.attributes.mandatory === 'true' });
 		}
 	}
 	return { kind: 'component', fields };
@@ -235,8 +246,7 @@ function parseXsd(text: string): Profile {
 		if (!name) return;
 		if (isRoot && rootName === undefined) rootName = name;
 		const repeating = element.attributes.maxOccurs === 'unbounded' || Number(element.attributes.maxOccurs) > 1;
-		const segment = `${name}${repeating ? '[*]' : ''}`;
-		const path = prefix ? `${prefix}.${segment}` : segment;
+		const path = `${joinKey(prefix, name)}${repeating ? '[*]' : ''}`;
 
 		let complex = childElements(element).find((c) => localName(c.name) === 'complexType');
 		const typeName = element.attributes.type ? localName(element.attributes.type) : undefined;
@@ -247,7 +257,7 @@ function parseXsd(text: string): Profile {
 			for (const child of descendants(complex)) {
 				if (localName(child.name) === 'element') walk(child, path, false, next);
 				if (localName(child.name) === 'attribute' && child.attributes.name) {
-					fields.push({ path: `${path}.$.${child.attributes.name}`, name: child.attributes.name, type: dataTypeToField(localName(child.attributes.type ?? '')), repeating: false, required: child.attributes.use === 'required' });
+					fields.push({ path: joinKey(`${path}.$`, child.attributes.name), name: child.attributes.name, type: dataTypeToField(localName(child.attributes.type ?? '')), repeating: false, required: child.attributes.use === 'required' });
 				}
 			}
 		} else {
@@ -346,18 +356,19 @@ function elementToSample(element: XmlElement): unknown {
 	for (const kid of kids) {
 		const name = localName(kid.name);
 		const value = elementToSample(kid);
-		if (name in result) {
+		if (hasOwn(result, name)) {
 			const existing = result[name];
-			result[name] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+			setOwn(result, name, Array.isArray(existing) ? [...existing, value] : [existing, value]);
 		} else {
-			result[name] = value;
+			setOwn(result, name, value);
 		}
 	}
 	if (text !== '') result._ = text;
 	return result;
 }
 
-function inferFields(value: unknown, prefix: string, fields: ProfileField[]): void {
+function inferFields(value: unknown, prefix: string, fields: ProfileField[], depth = 0): void {
+	if (depth > MAX_FIELD_DEPTH) return;
 	if (value === null || typeof value !== 'object') {
 		fields.push({ path: prefix, name: lastSegment(prefix), type: inferType(value), repeating: false, required: false });
 		return;
@@ -365,14 +376,14 @@ function inferFields(value: unknown, prefix: string, fields: ProfileField[]): vo
 	if (Array.isArray(value)) {
 		const sample = mergeArraySample(value);
 		if (sample !== undefined && typeof sample === 'object' && sample !== null && !Array.isArray(sample)) {
-			inferFields(sample, `${prefix}[*]`, fields);
+			inferFields(sample, `${prefix}[*]`, fields, depth + 1);
 		} else {
 			fields.push({ path: `${prefix}[*]`, name: lastSegment(prefix), type: inferType(sample), repeating: true, required: false });
 		}
 		return;
 	}
 	for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-		inferFields(child, prefix ? `${prefix}.${key}` : key, fields);
+		inferFields(child, joinKey(prefix, key), fields, depth + 1);
 	}
 }
 
@@ -383,7 +394,8 @@ function mergeArraySample(array: unknown[]): unknown {
 	const merged: Record<string, unknown> = {};
 	for (const entry of array) {
 		for (const [key, value] of Object.entries(entry as Record<string, unknown>)) {
-			if (!(key in merged) || merged[key] === null || merged[key] === undefined) merged[key] = value;
+			const current = getOwn(merged, key);
+			if (current === null || current === undefined) setOwn(merged, key, value);
 		}
 	}
 	return merged;
@@ -416,7 +428,8 @@ export interface SourcePath {
 
 export function flattenSource(data: unknown): SourcePath[] {
 	const paths: SourcePath[] = [];
-	const walk = (value: unknown, prefix: string) => {
+	const walk = (value: unknown, prefix: string, depth: number) => {
+		if (depth > MAX_FIELD_DEPTH) return;
 		if (value === null || typeof value !== 'object') {
 			if (prefix) paths.push({ path: prefix, name: lastSegment(prefix) });
 			return;
@@ -424,23 +437,29 @@ export function flattenSource(data: unknown): SourcePath[] {
 		if (Array.isArray(value)) {
 			const sample = mergeArraySample(value);
 			if (sample !== undefined && typeof sample === 'object' && sample !== null && !Array.isArray(sample)) {
-				walk(sample, `${prefix}[*]`);
+				walk(sample, `${prefix}[*]`, depth + 1);
 			} else if (prefix) {
 				paths.push({ path: `${prefix}[*]`, name: lastSegment(prefix) });
 			}
 			return;
 		}
 		for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
-			walk(child, prefix ? `${prefix}.${key}` : key);
+			walk(child, joinKey(prefix, key), depth + 1);
 		}
 	};
-	walk(data, '');
+	walk(data, '', 0);
 	return paths;
 }
 
 function lastSegment(path: string): string {
-	const segments = path.replace(/\[\*\]/g, '').split('.').filter(Boolean);
-	return segments.length ? segments[segments.length - 1] : path;
+	let tokens: Array<string | number> = [];
+	try {
+		tokens = parsePath(path);
+	} catch {
+		return path;
+	}
+	const names = tokens.filter((t): t is string => typeof t === 'string' && t !== '*' && t !== '$' && t !== '_');
+	return names.length ? names[names.length - 1] : path;
 }
 
 function normalize(name: string): string {
@@ -540,4 +559,15 @@ export function autoMap(sources: SourcePath[], target: Profile, options: AutoMap
 	}
 
 	return { rules, matched, unmatched };
+}
+
+/**
+ * Fields of a profile used as the SOURCE. Incoming XML is read with its root element
+ * (orders.order...), so a sample-XML profile, which lists fields without the root, gets the
+ * root put back in front. Other profile kinds already match the data they describe.
+ */
+export function sourceFields(profile: Profile): ProfileField[] {
+	if (profile.kind !== 'sampleXml' || !profile.rootName) return profile.fields;
+	const root = profile.rootName;
+	return profile.fields.map((field) => ({ ...field, path: field.path ? `${root}.${field.path}` : root }));
 }

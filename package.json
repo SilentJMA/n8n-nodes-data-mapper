@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-data-mapper",
-  "version": "0.2.0",
-  "description": "n8n community node that maps and transforms data from one structure to another, with array wildcards, value transforms, lookup tables and JSON/XML input and output.",
+  "version": "0.4.0",
+  "description": "n8n community node: drag and drop incoming data onto a target profile and output XML, JSON or CSV, with auto-map, array handling and type conversion.",
   "keywords": [
     "n8n-community-node-package",
     "n8n",
@@ -10,7 +10,10 @@
     "transform",
     "xml",
     "json",
-    "etl"
+    "etl",
+    "csv",
+    "drag-and-drop",
+    "visual-mapper"
   ],
   "license": "MIT",
   "homepage": "https://github.com/SilentJMA/n8n-nodes-data-mapper#readme",

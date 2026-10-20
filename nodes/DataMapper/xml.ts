@@ -26,6 +26,20 @@ export interface XmlToJsonOptions {
 
 export class XmlParseError extends Error {}
 
+/** Deeper nesting is rejected with a clear error instead of exhausting the stack. */
+export const MAX_XML_DEPTH = 1000;
+
+const hasOwn = (container: object, key: string) => Object.prototype.hasOwnProperty.call(container, key);
+
+/** A key named __proto__ becomes a plain property instead of changing the object's prototype. */
+function setOwn(container: Record<string, unknown>, key: string, value: unknown): void {
+	if (key === '__proto__') {
+		Object.defineProperty(container, key, { value, enumerable: true, writable: true, configurable: true });
+	} else {
+		container[key] = value;
+	}
+}
+
 const ENTITIES: Record<string, string> = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" };
 
 function decodeEntities(text: string): string {
@@ -82,7 +96,8 @@ export function parseXml(input: string): XmlDocument {
 		fail('Unclosed DOCTYPE');
 	};
 
-	const parseElement = (): XmlElement => {
+	const parseElement = (depth: number): XmlElement => {
+		if (depth > MAX_XML_DEPTH) fail(`XML is nested more than ${MAX_XML_DEPTH} levels deep`);
 		const start = pos;
 		pos++; // <
 		const name = readName();
@@ -107,8 +122,8 @@ export function parseXml(input: string): XmlDocument {
 			const quote = input[pos];
 			if (quote !== '"' && quote !== "'") fail(`Attribute "${attrName}" value must be quoted`);
 			pos++;
-			if (attrName in element.attributes) fail(`Duplicate attribute "${attrName}"`);
-			element.attributes[attrName] = decodeEntities(readUntil(quote, `attribute "${attrName}"`));
+			if (hasOwn(element.attributes, attrName)) fail(`Duplicate attribute "${attrName}"`);
+			setOwn(element.attributes, attrName, decodeEntities(readUntil(quote, `attribute "${attrName}"`)));
 		}
 
 		for (;;) {
@@ -133,7 +148,7 @@ export function parseXml(input: string): XmlDocument {
 				pos += 2;
 				readUntil('?>', 'processing instruction');
 			} else if (startsWith('<')) {
-				element.children.push(parseElement());
+				element.children.push(parseElement(depth + 1));
 			} else {
 				const next = input.indexOf('<', pos);
 				const end = next === -1 ? input.length : next;
@@ -161,7 +176,7 @@ export function parseXml(input: string): XmlDocument {
 			skipDoctype();
 		} else if (startsWith('<')) {
 			if (root) fail('Only one root element is allowed');
-			root = parseElement();
+			root = parseElement(1);
 		} else {
 			fail('Text is not allowed outside the root element');
 		}
@@ -186,12 +201,13 @@ function elementToJson(element: XmlElement, options: XmlToJsonOptions): unknown 
 	const result: Record<string, unknown> = {};
 	const add = (key: string, value: unknown) => {
 		if (options.alwaysArray) {
-			result[key] = [...((result[key] as unknown[] | undefined) ?? []), value];
-		} else if (key in result) {
+			const existing = hasOwn(result, key) ? (result[key] as unknown[]) : [];
+			setOwn(result, key, [...existing, value]);
+		} else if (hasOwn(result, key)) {
 			const existing = result[key];
-			result[key] = Array.isArray(existing) ? [...existing, value] : [existing, value];
+			setOwn(result, key, Array.isArray(existing) ? [...existing, value] : [existing, value]);
 		} else {
-			result[key] = value;
+			setOwn(result, key, value);
 		}
 	};
 
@@ -199,11 +215,11 @@ function elementToJson(element: XmlElement, options: XmlToJsonOptions): unknown 
 		if (options.attributes === 'merge') {
 			for (const name of attributeNames) add(name, element.attributes[name]);
 		} else {
-			result[options.attributeKey] = { ...element.attributes };
+			setOwn(result, options.attributeKey, { ...element.attributes });
 		}
 	}
 	for (const child of childElements) add(child.name, elementToJson(child, options));
-	if (text !== '') result[options.textKey] = text;
+	if (text !== '') setOwn(result, options.textKey, text);
 
 	return result;
 }
@@ -296,7 +312,7 @@ function buildElement(name: string, value: unknown, options: JsonToXmlOptions): 
 	for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
 		if (key === options.attributeKey && child && typeof child === 'object' && !Array.isArray(child)) {
 			for (const [attr, attrValue] of Object.entries(child as Record<string, unknown>)) {
-				element.attributes[assertName(attr)] = scalarToText(attrValue);
+				setOwn(element.attributes, assertName(attr), scalarToText(attrValue));
 			}
 		} else if (key === options.textKey) {
 			const text = scalarToText(child);

@@ -4,15 +4,16 @@
 [![CI](https://github.com/SilentJMA/n8n-nodes-data-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/SilentJMA/n8n-nodes-data-mapper/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-An [n8n](https://n8n.io) community node that **maps data from one structure to another**. Rename and nest fields, map whole arrays with `[*]`, convert types, format dates, translate codes with lookup tables, and convert between **JSON and XML**, all in one node.
+An [n8n](https://n8n.io) community node that **maps whatever comes in onto a target structure** and outputs **XML, JSON or CSV**.
 
-Load a **target profile** (a profile component exported as XML/JSON/Flat File, JSON Schema, sample JSON/XML, XSD or a CSV header) — paste it or upload it — to pick target fields from a dropdown, or let **auto-map** match source fields to the target for you.
+Paste a **target profile** (an XML/JSON/Flat File profile component, JSON Schema, sample JSON or XML, XSD, or a CSV header) and its fields appear as a target list. Then **drag fields from n8n's Input panel onto the target fields**, the same way you draw lines in a visual mapper, or let **Map Automatically** match them by name. You don't need a source profile: anything the previous node outputs can be mapped.
 
-Use it to turn an API response into your internal format, shape database rows into a request payload, read a supplier's XML into clean JSON, or pull just the useful parts out of a large payload.
+Use it to turn an API response into a partner's XML order, shape database rows into a CSV export, read a supplier's XML into clean JSON, or pull the useful parts out of a large payload.
 
 - [Screenshots](#screenshots)
 - [Installation](#installation)
-- [Quick start](#quick-start)
+- [Drag-and-drop mapping](#drag-and-drop-mapping)
+- [Classic mode quick start](#classic-mode-quick-start)
 - [Paths](#paths)
 - [Parameters](#parameters)
 - [Transforms](#transforms)
@@ -20,6 +21,7 @@ Use it to turn an API response into your internal format, shape database rows in
 - [Reusable JSON definitions](#reusable-json-definitions)
 - [Working with XML](#working-with-xml)
 - [Examples](#examples)
+- [Security](#security)
 - [Compatibility](#compatibility)
 - [Development](#development)
 - [License](#license)
@@ -55,9 +57,80 @@ tar -xzf n8n-nodes-data-mapper-*.tgz && mv package n8n-nodes-data-mapper
 
 Restart n8n afterwards.
 
-## Quick start
+## Drag-and-drop mapping
 
-Given this input item:
+New Data Mapper nodes (node version 2) work like a visual mapper:
+
+```
+ INPUT panel (whatever comes in)        Data Mapper (target profile)
+ ───────────────────────────────        ──────────────────────────────
+ OrderID          "A1"      ──drag──▶   order › @id
+ Currency         "eur"     ──drag──▶   order › currency
+ Items[0].SKU     "P-1"     ──drag──▶   order › line[] › sku
+ Items[0].Qty     "2"       ──drag──▶   order › line[] › quantity (number)
+```
+
+1. **Output Format** — pick **XML**, **JSON** or **CSV**.
+2. **Source Data** — *Incoming Item* (default), or *XML or JSON Text in a Field* / *XML or JSON File* when the order arrives as raw text, e.g. in a `data` field.
+3. **Source Profile** (optional) — paste the structure of the incoming data, such as a sample order. Every target field then gets a **dropdown of source fields**, like picking the source side of a line in a visual mapper. You can still switch any field to an expression.
+4. **Target Profile** — paste the profile. Its fields load into **Target Fields** as a tree (`order › line[] › @sku`): `›` separates levels, `[]` marks a repeating element, `@` an XML attribute, `(number)` a type and `*` a required field.
+5. **Target Fields** — for each target field, pick the source field from the dropdown (with a Source Profile), or drag a field from the **Input** panel and drop it into the box. Or set the mode to **Map Automatically** and the node matches source fields to target fields by similar names (`OrderID` → `orderId`, `Qty` → `quantity`).
+6. Run the node.
+
+A source profile made from a one-item sample still maps every item of a real order: when a picked field sits inside a list in the actual data (`orders.order.lines.line.sku` with several `line`s), each element becomes its own target element.
+
+What a drop can be:
+
+| You put in a target box | What happens |
+| --- | --- |
+| A field picked from the Source Profile dropdown | That field is copied across (lists included). |
+| A dragged field, `{{ $json.OrderID }}` | That field is copied across. |
+| A dragged field from a list, `{{ $json.Items[0].SKU }}`, on a repeating target (`line[]`) | Every element is mapped, not just the first: one `line` per item. |
+| A dragged single field on a repeating target, e.g. `{{ $json.Currency }}` → `line[] › currency` | The value is written into every line. |
+| Any expression, e.g. `{{ $json.Currency.toUpperCase() }}` or `{{ $now.toISO() }}` | Its result is used. Expressions work like map functions: `.trim()`, `.toUpperCase()`, `.toNumber()`, `.toDateTime().toFormat('dd/MM/yyyy')`, a lookup object `{{ ({ NL: 'Netherlands' })[$json.Country] }}`, and so on. |
+| An expression returning a list on a repeating target, e.g. `{{ $json.Items.map(i => i.SKU) }}` | Element `n` of the list goes to element `n` of the target. |
+| Fixed text, e.g. `n8n` | Written as-is. |
+| Nothing | The target field is left out (turn on **Keep Empty Values** to write it empty). |
+
+The output always follows the **order of the target profile**, which matters to XML consumers and XSD validation. Numbers and booleans are converted where the profile says so (**Convert Types From Profile**); a value that can't be converted is kept as it is instead of failing the run.
+
+### Output
+
+| Output Format | Output To: Item | Output To: File |
+| --- | --- | --- |
+| JSON | The mapped data becomes the item | `output.json` |
+| XML | XML text in the `xml` field | `output.xml` |
+| CSV | CSV text in the `csv` field | `output.csv` |
+
+CSV columns follow the profile. By default every incoming item becomes rows in **one CSV**, with a header row. A repeating target (`lines[]`) gives one row per element, with the other columns repeated.
+
+### Options
+
+| Option | Default | Description |
+| --- | --- | --- |
+| Add Auto-Map Report | off | Adds `_autoMap` with matched and unmatched fields (Map Automatically, JSON output). |
+| Auto-Map Minimum Confidence | 0.6 | How close names must be, 0 to 1. |
+| Convert Types From Profile | on | Turn values into numbers/booleans where the profile says so. |
+| CSV Delimiter / Header Row / Line Ending | `,` / on / LF | CSV formatting. |
+| Escape CSV Formulas | off | Put `'` in front of values starting with `=`, `+`, `-`, `@`, tab or CR, so spreadsheets don't run them as formulas (CSV injection). |
+| Include XML Declaration | on | Start XML with `<?xml version="1.0" encoding="UTF-8"?>`. |
+| Keep Empty Values | off | Write empty target fields instead of leaving them out. |
+| One CSV for All Items | on | One CSV for the whole run, or one per item. |
+| Profile Format / Source Profile Format | Detect Automatically | Force a profile type if detection guesses wrong. |
+| Read Profile From Binary Field | | Read the profile from an uploaded file at run time (works with Map Automatically; to drag and drop, paste the profile). |
+| Root Element | | XML root name. Defaults to the root of a sample-XML target profile. |
+
+### Tips
+
+- **CSV, Excel or other files coming in?** Put an **Extract from File** node first so each row becomes an item you can drag from.
+- **Input is raw XML in a field and you can't drag from it?** Set **Source Data** to *XML or JSON Text in a Field* and paste a **Source Profile**: you then pick source fields from dropdowns.
+- **The field list is empty?** It loads from the pasted profile. If the profile comes from an expression, n8n can't list its fields at design time: paste it, or use Map Automatically.
+- **Changed the profile?** Use the refresh button above the target fields to reload them.
+- Existing workflows keep the **classic mode** (node version 1) described below. Nothing changes for them.
+
+## Classic mode quick start
+
+Data Mapper nodes created before version 0.3.0 (node version 1) use path-based mappings with built-in transforms. Given this input item:
 
 ```json
 {
@@ -124,7 +197,8 @@ Mappings run in order, and a later mapping to the same target overwrites an earl
 | **Input Format** | *Detect Automatically* (XML when the text starts with `<`), *JSON* or *XML*. |
 | **Define Mappings** | *Using Fields Below*, *Auto-Map From Profile*, or *Using JSON*. See [Target profiles and auto-map](#target-profiles-and-auto-map) and [Reusable JSON definitions](#reusable-json-definitions). |
 | **Target Profile** / **Target Profile Format** | Optional. The structure to map into. See [Target profiles and auto-map](#target-profiles-and-auto-map). |
-| **Mappings** | The list of mappings. Each has a **Source** (*Input Field* path or *Fixed Value*, which can be an expression), a **Target** (*Custom Path* you type, or *From Target Profile* picked from a dropdown), an optional **Transform**, and **If Source Is Missing**: *Leave Out* (default), *Set to Null*, *Use Default* or *Stop With Error*. |
+| **Source Profile** / **Source Profile Format** | Optional (*Using Fields Below*). The structure of the incoming data, so each mapping can use **Source: From Source Profile** and pick the field from a dropdown. |
+| **Mappings** | The list of mappings. Each has a **Source** (*Input Field* path, *From Source Profile* dropdown, or *Fixed Value*, which can be an expression), a **Target** (*Custom Path* you type, or *From Target Profile* picked from a dropdown), an optional **Transform**, and **If Source Is Missing**: *Leave Out* (default), *Set to Null*, *Use Default* or *Stop With Error*. |
 | **Auto-Map Remaining Target Fields** | *Fields mode.* Fills any profile fields you did not map by hand by matching them to source fields by name. |
 | **Unmapped Fields** | *Drop* outputs only mapped fields. *Keep* starts from a copy of the input and applies the mappings on top. |
 | **Output Format** | *JSON* (the item), *JSON File*, *XML* (text in a field) or *XML File*. |
@@ -337,6 +411,14 @@ Keep three fields from a big payload: **Unmapped Fields** *Drop*, with mappings 
 ### Normalize data from several sources
 
 Put one Data Mapper on each source branch, each mapping into the same target shape, then merge the branches.
+
+## Security
+
+- **No runtime dependencies.** The published package is only the compiled node; nothing else is installed into your n8n.
+- **Safe XML parsing.** DTDs and entity declarations are ignored, so there are no external entities (XXE) and no entity expansion. Only the five standard entities and numeric references are decoded. Nesting deeper than 1,000 levels is rejected with a clear error.
+- **No prototype pollution.** Field names and paths such as `__proto__` or `constructor`, whether they come from mappings, profiles, lookup tables or the data itself, are treated as plain data and never reach `Object.prototype`.
+- **No code execution.** Mappings, profiles and lookup tables are data; the node never evaluates them. Expressions are evaluated by n8n itself, as in any other node.
+- **CSV injection.** Turn on **Escape CSV Formulas** when the CSV will be opened in a spreadsheet and contains untrusted values.
 
 ## Compatibility
 

@@ -30,10 +30,12 @@ npm install --ignore-scripts
 nodes/DataMapper/
   DataMapper.node.ts    Node description, input reading and output writing
   DataMapper.node.json  Codex metadata (categories, docs link, search aliases)
+  visual.ts             Version 2 (visual mapper): parameters, target-field list, drag references, execution
+  csv.ts                CSV writer
   mapping.ts            Path parsing, wildcard resolution, transforms and definition validation
   xml.ts                Dependency-free XML parser, XML-to-JSON and JSON-to-XML conversion, formatter
   mapper.svg / .dark.svg  Node icon (light and dark theme)
-test/                   node:test suites run against the compiled dist/
+test/                   node:test suites run against the compiled dist/ (including security.test.js)
 examples/               Importable example workflow (also exercised by test/example.test.js)
 ```
 

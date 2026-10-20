@@ -24,10 +24,12 @@ import {
 	flattenSource,
 	parseProfile,
 	ProfileError,
+	sourceFields,
 	type AutoMapOptions,
 	type Profile,
 	type ProfileFormat,
 } from './profile';
+import { executeVisual, getProfileFields, visualProperties } from './visual';
 import { jsonToXml, parseXml, xmlToJson, XmlParseError } from './xml';
 
 type InputSource = 'json' | 'field' | 'binary';
@@ -36,8 +38,9 @@ type OutputFormat = 'json' | 'xml' | 'xmlFile' | 'jsonFile';
 type DefinitionMode = 'fields' | 'json' | 'auto';
 
 interface UiMapping {
-	sourceType: 'field' | 'value';
+	sourceType: 'field' | 'value' | 'profile';
 	source?: string;
+	sourceField?: string;
 	value?: unknown;
 	targetMode?: 'profile' | 'custom';
 	targetField?: string;
@@ -63,9 +66,23 @@ const mappingFields: INodeProperties[] = [
 		type: 'options',
 		options: [
 			{ name: 'Input Field', value: 'field', description: 'Read a value from the input by path' },
+			{
+				name: 'From Source Profile',
+				value: 'profile',
+				description: 'Pick a field from the source profile',
+			},
 			{ name: 'Fixed Value', value: 'value', description: 'Write a fixed value or the result of an expression' },
 		],
 		default: 'field',
+	},
+	{
+		displayName: 'Source Field Name or ID',
+		name: 'sourceField',
+		type: 'options',
+		typeOptions: { loadOptionsMethod: 'getSourceFields' },
+		default: '',
+		description: 'Field from the source profile. Fill the Source Profile field above first. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+		displayOptions: show({ sourceType: ['profile'] }),
 	},
 	{
 		displayName: 'Source Path',
@@ -105,7 +122,7 @@ const mappingFields: INodeProperties[] = [
 		type: 'options',
 		typeOptions: { loadOptionsMethod: 'getTargetFields' },
 		default: '',
-		description: 'Field from the target profile. Fill the Target Profile field above first. Choose from the list, or specify an ID using an expression. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
+		description: 'Field from the target profile. Fill the Target Profile field above first. Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>.',
 		displayOptions: show({ targetMode: ['profile'] }),
 	},
 	{
@@ -215,14 +232,14 @@ const mappingFields: INodeProperties[] = [
 			{ name: 'Stop With Error', value: 'error' },
 		],
 		default: 'skip',
-		displayOptions: show({ sourceType: ['field'] }),
+		displayOptions: show({ sourceType: ['field', 'profile'] }),
 	},
 	{
 		displayName: 'Default Value',
 		name: 'defaultValue',
 		type: 'string',
 		default: '',
-		displayOptions: show({ sourceType: ['field'], ifMissing: ['default'] }),
+		displayOptions: show({ sourceType: ['field', 'profile'], ifMissing: ['default'] }),
 	},
 ];
 
@@ -238,23 +255,7 @@ const exampleDefinition = JSON.stringify(
 	2,
 );
 
-export class DataMapper implements INodeType {
-	description: INodeTypeDescription = {
-		displayName: 'Data Mapper',
-		name: 'dataMapper',
-		icon: { light: 'file:mapper.svg', dark: 'file:mapper.dark.svg' },
-		group: ['transform'],
-		version: 1,
-		subtitle:
-			'={{ $parameter["definitionMode"] === "auto" ? "Auto-map from profile" : $parameter["definitionMode"] === "json" ? "JSON definition" : "Field mappings" }}',
-		description: 'Map and transform data from one structure to another, between JSON and XML',
-		defaults: {
-			name: 'Data Mapper',
-		},
-		inputs: [NodeConnectionTypes.Main],
-		outputs: [NodeConnectionTypes.Main],
-		usableAsTool: true,
-		properties: [
+const v1Properties: INodeProperties[] = [
 			{
 				displayName: 'Input',
 				name: 'inputSource',
@@ -320,6 +321,34 @@ export class DataMapper implements INodeType {
 					},
 				],
 				default: 'fields',
+			},
+			{
+				displayName: 'Source Profile',
+				name: 'sourceProfile',
+				type: 'string',
+				typeOptions: { rows: 4 },
+				default: '',
+				placeholder:
+					'Optional: paste the structure of the incoming data (profile component, JSON Schema, sample JSON or XML, XSD, CSV header)',
+				description: 'Optional. Describes the incoming data, so you can pick source fields from a dropdown (Source: From Source Profile) instead of typing paths.',
+				displayOptions: show({ definitionMode: ['fields'] }),
+			},
+			{
+				displayName: 'Source Profile Format',
+				name: 'sourceProfileFormat',
+				type: 'options',
+				// eslint-disable-next-line n8n-nodes-base/node-param-options-type-unsorted-items
+				options: [
+					{ name: 'Detect Automatically', value: 'auto' },
+					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
+					{ name: 'JSON Schema', value: 'jsonSchema' },
+					{ name: 'Sample JSON', value: 'sampleJson' },
+					{ name: 'Sample XML', value: 'sampleXml' },
+					{ name: 'XSD', value: 'xsd' },
+					{ name: 'CSV Header', value: 'csv' },
+				],
+				default: 'auto',
+				displayOptions: show({ definitionMode: ['fields'] }),
 			},
 			{
 				displayName:
@@ -548,11 +577,61 @@ export class DataMapper implements INodeType {
 				description: 'Whether to start the XML with &lt;?xml version="1.0" encoding="UTF-8"?&gt;',
 				displayOptions: show({ outputFormat: ['xml', 'xmlFile'] }),
 			},
-		],
+		];
+
+function forVersions(properties: INodeProperties[], versions: number[]): INodeProperties[] {
+	return properties.map((property) => ({
+		...property,
+		displayOptions: {
+			...property.displayOptions,
+			show: { ...property.displayOptions?.show, '@version': versions },
+		},
+	}));
+}
+
+export class DataMapper implements INodeType {
+	description: INodeTypeDescription = {
+		displayName: 'Data Mapper',
+		name: 'dataMapper',
+		icon: { light: 'file:mapper.svg', dark: 'file:mapper.dark.svg' },
+		group: ['transform'],
+		version: [1, 2],
+		defaultVersion: 2,
+		subtitle:
+			'={{ $parameter["targetFormat"] ? "Map to " + $parameter["targetFormat"].toUpperCase() : $parameter["definitionMode"] === "auto" ? "Auto-map from profile" : $parameter["definitionMode"] === "json" ? "JSON definition" : "Field mappings" }}',
+		description: 'Drag and drop incoming data onto a target profile and output XML, JSON or CSV',
+		defaults: {
+			name: 'Data Mapper',
+		},
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
+		usableAsTool: true,
+		properties: [...forVersions(v1Properties, [1]), ...forVersions(visualProperties, [2])],
 	};
 
 	methods = {
+		resourceMapping: {
+			getProfileFields,
+		},
 		loadOptions: {
+			async getSourceFields(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const text = (safeParam(this, 'sourceProfile') ?? '').trim();
+				if (text === '') return [{ name: 'Paste A Source Profile First', value: '' }];
+				if (text.startsWith('=') || text.includes('{{')) {
+					return [{ name: 'Source Profile Is Set By An Expression — Type The Source Path Instead', value: '' }];
+				}
+				const format = (safeParam(this, 'sourceProfileFormat') ?? 'auto') as ProfileFormat;
+				try {
+					const fields = sourceFields(parseProfile(text, format));
+					if (fields.length === 0) return [{ name: 'No Fields Found In The Source Profile', value: '' }];
+					return fields.map((field) => ({
+						name: `${field.path}${field.repeating ? ' (list)' : ''} [${field.type}]`,
+						value: field.path,
+					}));
+				} catch (error) {
+					return [{ name: `Profile Error: ${(error as Error).message}`, value: '' }];
+				}
+			},
 			async getTargetFields(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const source = safeParam(this, 'targetProfileSource') ?? 'paste';
 				if (source !== 'paste') {
@@ -581,6 +660,7 @@ export class DataMapper implements INodeType {
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
+		if (this.getNode().typeVersion >= 2) return await executeVisual.call(this);
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 		const profileCache = new Map<string, Profile | undefined>();
@@ -714,8 +794,20 @@ function uiMappingToRule(m: UiMapping, ctx: IExecuteFunctions, itemIndex: number
 			);
 		}
 	}
+	let sourcePart: Partial<MappingRule>;
+	if (m.sourceType === 'value') sourcePart = { value: m.value ?? '' };
+	else if (m.sourceType === 'profile') {
+		if (!m.sourceField) {
+			throw new NodeOperationError(
+				ctx.getNode(),
+				'A mapping is set to "From Source Profile" but no source field is selected',
+				{ itemIndex },
+			);
+		}
+		sourcePart = { source: m.sourceField, broadcast: true };
+	} else sourcePart = { source: m.source ?? '' };
 	return {
-		...(m.sourceType === 'value' ? { value: m.value ?? '' } : { source: m.source ?? '' }),
+		...sourcePart,
 		target,
 		transform: m.transform,
 		separator: m.separator,

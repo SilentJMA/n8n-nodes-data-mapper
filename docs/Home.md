@@ -7,15 +7,18 @@
 ## Pages
 
 - [Installation](Installation.md) — UI install, manual/Docker/Unraid, the `CUSTOM.` prefix
+- [Visual Mapper](Visual-Mapper.md) — drag and drop onto a target profile, XML/JSON/CSV output
 - [Mapping Reference](Mapping-Reference.md) — paths, `[*]` wildcards, parameters
 - [Transforms](Transforms.md) — every transform and its options
 - [Profiles and Auto-Map](Profiles-and-Auto-Map.md) — target profiles, upload, the field dropdown, auto-map
 - [Working with XML](Working-with-XML.md) — reading and writing XML
 - [Examples](Examples.md) — screenshots and importable workflows
+- [Security](Security.md) — XML parsing, prototype safety, CSV injection
 
 ## At a glance
 
-- **Modes:** map with fields, auto-map from a profile, or a reusable JSON definition.
+- **Visual mapper:** drag Input-panel fields onto target-profile fields, or Map Automatically.
+- **Classic mode (v1):** paths with transforms, auto-map, or a reusable JSON definition.
 - **Inputs:** item JSON, or JSON/XML from a field or file.
-- **Outputs:** JSON, JSON file, XML or XML file.
+- **Outputs:** JSON, XML or CSV, as an item field or a file.
 - **No runtime dependencies** — copy it straight into an n8n `custom` folder.

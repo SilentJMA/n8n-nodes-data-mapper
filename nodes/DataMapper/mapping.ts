@@ -32,6 +32,16 @@ export interface MappingRule {
 	lookup?: Record<string, unknown> | string;
 	lookupFallback?: LookupFallback;
 	lookupDefault?: unknown;
+	/** Fixed value only: when the value is an array and the target has [*], write element i to position i. */
+	spread?: boolean;
+	/** When a type conversion fails, keep the original value instead of stopping with an error. */
+	lenient?: boolean;
+	/**
+	 * Source rule only: when the target has more [*] than the source, find the lists in the data
+	 * along the source path; if there are none, fill every existing target element, or create the
+	 * first one. Used for fields picked from a profile or dragged from a single-element list.
+	 */
+	broadcast?: boolean;
 }
 
 export class MappingError extends Error {}
@@ -128,10 +138,27 @@ export function resolvePath(root: unknown, tokens: Token[]): Resolved[] {
 			walk(token === 0 ? current : undefined, depth + 1, indices);
 			return;
 		}
-		walk((current as Record<string | number, unknown>)[token], depth + 1, indices);
+		walk(getOwn(current, token), depth + 1, indices);
 	};
 	walk(root, 0, []);
 	return results;
+}
+
+/** Own-property read: never returns inherited members such as constructor or __proto__. */
+export function getOwn(container: unknown, key: string | number): unknown {
+	if (container === null || typeof container !== 'object') return undefined;
+	return Object.prototype.hasOwnProperty.call(container, key)
+		? (container as Record<string | number, unknown>)[key]
+		: undefined;
+}
+
+/** Own-property write: a key named __proto__ becomes a plain property instead of changing the prototype. */
+export function setOwn(container: Record<string | number, unknown>, key: string | number, value: unknown): void {
+	if (key === '__proto__') {
+		Object.defineProperty(container, key, { value, enumerable: true, writable: true, configurable: true });
+	} else {
+		container[key] = value;
+	}
 }
 
 function isContainer(value: unknown): value is Record<string | number, unknown> {
@@ -151,42 +178,72 @@ function setAt(root: Record<string, unknown>, tokens: Token[], indices: number[]
 	tokens.forEach((token, depth) => {
 		const key = token === WILDCARD ? indices[wildcard++] : token;
 		if (depth === tokens.length - 1) {
-			current[key] = value;
+			setOwn(current, key, value);
 			return;
 		}
 		const next = tokens[depth + 1];
 		const wantArray = typeof next === 'number' || next === WILDCARD;
-		if (!isContainer(current[key])) current[key] = wantArray ? [] : {};
-		current = current[key] as Record<string | number, unknown>;
+		if (!isContainer(getOwn(current, key))) setOwn(current, key, wantArray ? [] : {});
+		current = getOwn(current, key) as Record<string | number, unknown>;
 	});
 }
 
 /** Writes one value to every element a target path with `[*]` points to (for fixed values). */
-function broadcast(root: Record<string, unknown>, tokens: Token[], value: unknown, target: string) {
+function broadcast(root: Record<string, unknown>, tokens: Token[], value: unknown, target: string): number {
+	let writes = 0;
 	const walk = (current: Record<string | number, unknown>, depth: number) => {
 		const token = tokens[depth];
 		const last = depth === tokens.length - 1;
 		if (token === WILDCARD) {
 			if (!Array.isArray(current)) return;
 			current.forEach((entry, index) => {
-				if (last) current[index] = value;
-				else if (isContainer(entry)) walk(entry, depth + 1);
+				if (last) {
+					setOwn(current, index, value);
+					writes++;
+				} else if (isContainer(entry)) walk(entry, depth + 1);
 			});
 			return;
 		}
 		if (last) {
-			current[token] = value;
+			setOwn(current, token, value);
+			writes++;
 			return;
 		}
 		const next = tokens[depth + 1];
-		if (!isContainer(current[token])) {
+		if (!isContainer(getOwn(current, token))) {
 			if (next === WILDCARD) return; // nothing to broadcast over yet
-			current[token] = typeof next === 'number' ? [] : {};
+			setOwn(current, token, typeof next === 'number' ? [] : {});
 		}
-		walk(current[token] as Record<string | number, unknown>, depth + 1);
+		walk(getOwn(current, token) as Record<string | number, unknown>, depth + 1);
 	};
 	if (tokens.length === 0) throw new MappingError(`Target "${target}" must not be empty`);
 	walk(root, 0);
+	return writes;
+}
+
+/**
+ * Inserts [*] wherever the data along the path holds a list, up to `needed` levels, so a path taken
+ * from a one-element sample (lines.line.sku) still reaches every element (lines.line[*].sku).
+ */
+function expandWildcards(root: unknown, tokens: Token[], needed: number): Token[] {
+	const out: Token[] = [];
+	const first = (list: unknown[]) => list.find((entry) => entry !== null && entry !== undefined);
+	let current: unknown = root;
+	for (const token of tokens) {
+		while (Array.isArray(current) && token !== WILDCARD && typeof token !== 'number' && countWildcards(out) < needed) {
+			out.push(WILDCARD);
+			current = first(current);
+		}
+		out.push(token);
+		if (token === WILDCARD) current = Array.isArray(current) ? first(current) : current;
+		else if (isContainer(current)) current = getOwn(current, token);
+		else current = undefined;
+	}
+	while (Array.isArray(current) && countWildcards(out) < needed) {
+		out.push(WILDCARD);
+		current = first(current);
+	}
+	return out;
 }
 
 const isMissing = (value: unknown) => value === undefined;
@@ -218,6 +275,15 @@ function applyRule(input: unknown, rule: MappingRule, output: Record<string, unk
 	const targetWildcards = countWildcards(targetTokens);
 
 	if (rule.value !== undefined) {
+		if (rule.spread && targetWildcards > 0 && Array.isArray(rule.value)) {
+			for (const { indices, value } of spreadPositions(rule.value, targetWildcards)) {
+				// A list position without a value (null/undefined) means "nothing here" for that element.
+				if (value === null || value === undefined) continue;
+				const final = finalize(value, rule);
+				if (final !== SKIP) setAt(output, targetTokens, indices, final, rule.target);
+			}
+			return;
+		}
 		const value = finalize(rule.value, rule);
 		if (value === SKIP) return;
 		if (targetWildcards > 0) broadcast(output, targetTokens, value, rule.target);
@@ -225,8 +291,23 @@ function applyRule(input: unknown, rule: MappingRule, output: Record<string, unk
 		return;
 	}
 
-	const sourceTokens = parsePath(rule.source ?? '');
-	const sourceWildcards = countWildcards(sourceTokens);
+	let sourceTokens = parsePath(rule.source ?? '');
+	let sourceWildcards = countWildcards(sourceTokens);
+	if (targetWildcards > sourceWildcards && rule.broadcast) {
+		const expanded = expandWildcards(input, sourceTokens, targetWildcards);
+		if (countWildcards(expanded) >= targetWildcards) {
+			sourceTokens = expanded;
+			sourceWildcards = countWildcards(expanded);
+		} else {
+			const found = resolvePath(input, expanded).find((entry) => entry.value !== undefined);
+			const final = finalize(found?.value, rule);
+			if (final === SKIP) return;
+			if (broadcast(output, targetTokens, final, rule.target) === 0) {
+				setAt(output, targetTokens, new Array(targetWildcards).fill(0), final, rule.target);
+			}
+			return;
+		}
+	}
 	if (targetWildcards > sourceWildcards) {
 		throw new MappingError(
 			`Target has ${targetWildcards} [*] but source "${rule.source ?? ''}" has ${sourceWildcards}. Each [*] in the target needs a matching [*] in the source.`,
@@ -268,8 +349,23 @@ function applyRule(input: unknown, rule: MappingRule, output: Record<string, unk
 
 const SKIP = Symbol('skip');
 
+/** Walks nested arrays `depth` levels deep and returns each leaf with its position indices. */
+function spreadPositions(value: unknown[], depth: number): Resolved[] {
+	const results: Resolved[] = [];
+	const walk = (current: unknown, level: number, indices: number[]) => {
+		if (level === depth) {
+			results.push({ indices, value: current });
+			return;
+		}
+		const list = Array.isArray(current) ? current : [current];
+		list.forEach((entry, index) => walk(entry, level + 1, [...indices, index]));
+	};
+	walk(value, 0, []);
+	return results;
+}
+
 function finalize(raw: unknown, rule: MappingRule): unknown {
-	let value = raw;
+	const value = raw;
 	if (isMissing(value)) {
 		switch (rule.ifMissing ?? 'skip') {
 			case 'skip':
@@ -282,8 +378,15 @@ function finalize(raw: unknown, rule: MappingRule): unknown {
 				throw new MappingError(`Source "${rule.source ?? ''}" was not found in the input`);
 		}
 	}
-	value = applyTransform(value, rule);
-	return value;
+	if (!rule.lenient) return applyTransform(value, rule);
+	let converted: unknown = value;
+	let failed = false;
+	try {
+		converted = applyTransform(value, rule);
+	} catch {
+		failed = true;
+	}
+	return failed ? value : converted;
 }
 
 const TRUE_WORDS = new Set(['true', '1', 'yes', 'y', 'on']);
@@ -367,7 +470,7 @@ export function parseLookupTable(table: Record<string, unknown> | string | undef
 		if (line.trim() === '') continue;
 		const eq = line.indexOf('=');
 		if (eq === -1) throw new MappingError(`Lookup table line "${line}" must look like key=value`);
-		result[line.slice(0, eq).trim()] = line.slice(eq + 1).trim();
+		setOwn(result, line.slice(0, eq).trim(), line.slice(eq + 1).trim());
 	}
 	return result;
 }
@@ -444,6 +547,9 @@ const RULE_KEYS = new Set([
 	'lookup',
 	'lookupFallback',
 	'lookupDefault',
+	'spread',
+	'lenient',
+	'broadcast',
 ]);
 
 /** Validates a mapping definition given as JSON: an array of rules or `{ "mappings": [...] }`. */

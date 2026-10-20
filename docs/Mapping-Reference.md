@@ -27,7 +27,8 @@ Mappings run in order; a later mapping to the same target overwrites an earlier 
 | **Input Format** | *Detect Automatically*, *JSON* or *XML*. |
 | **Define Mappings** | *Using Fields Below*, *Auto-Map From Profile*, or *Using JSON*. |
 | **Target Profile** | Optional structure to map into. See [Profiles and Auto-Map](Profiles-and-Auto-Map.md). |
-| **Mappings** | Each has a **Source** (field path or fixed value), a **Target** (custom path or profile field), a **Transform**, and **If Source Is Missing**. |
+| **Source Profile** | Optional structure of the incoming data (classic mode). Enables **Source: From Source Profile** with a dropdown of source fields. |
+| **Mappings** | Each has a **Source** (field path, a field from the source profile, or fixed value), a **Target** (custom path or profile field), a **Transform**, and **If Source Is Missing**. |
 | **Unmapped Fields** | *Drop* keeps only mapped fields; *Keep* starts from a copy of the input. |
 | **Output Format** | *JSON*, *JSON File*, *XML* or *XML File*. |
 

@@ -2,6 +2,53 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-20
+
+### Added
+
+- **Source Profile.** Optionally paste the structure of the incoming data. In the visual mapper every target field then offers a dropdown of source fields; in classic mode each mapping can use **Source: From Source Profile**.
+- **Source Data** setting in the visual mapper: map the incoming item, or XML/JSON text in a field or file (for example a raw order in `data`).
+- Fields picked from a profile (or dragged from a single-element list) find the lists in the actual data, so a profile made from a one-item sample maps every item of a real order.
+- A sample-XML target profile supplies the XML root element automatically.
+- **Escape CSV Formulas** option against CSV injection.
+
+### Security
+
+- Field names and paths such as `__proto__` can no longer modify `Object.prototype` (prototype pollution), whether they come from mappings, profiles, lookup tables or the data.
+- Source paths only read the data's own fields, never inherited members such as `constructor`.
+- XML nested deeper than 1,000 levels, and data nested deeper than 200 levels when listing fields, is handled with a clear error or limit instead of exhausting the stack.
+
+### Fixed
+
+- XML attributes named `constructor`, `toString` and the like were rejected as duplicates.
+- Field names containing dots, brackets or spaces are quoted in paths (`a["first name"]`), so they are no longer mistaken for nesting.
+
+[0.4.0]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.0
+
+## [0.3.1] - 2026-10-20
+
+### Fixed
+
+- A list expression on a repeating target now skips positions without a value (`null`/`undefined`) instead of writing empty elements, so optional blocks such as a per-line discount only appear on the lines that have one.
+
+[0.3.1]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.3.1
+
+## [0.3.0] - 2026-10-20
+
+### Added
+
+- **Visual mapper (node version 2, the new default).** Paste a target profile and its fields load as a target tree; drag fields from n8n's Input panel onto them, or choose **Map Automatically**. No source profile needed.
+- Dragging a field from a list onto a repeating target maps every element; a single value dropped on a repeating target fills every element; an expression returning a list is spread element by element.
+- **CSV output**, with one CSV for all items, header row, delimiter and line-ending options, and one row per repeating element.
+- Output follows the target profile's field order.
+- Lenient type conversion from the profile: values that can't be converted are kept instead of failing.
+
+### Changed
+
+- Existing workflows keep node version 1 (classic mode) unchanged.
+
+[0.3.0]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.3.0
+
 ## [0.2.0] - 2026-10-17
 
 ### Added
