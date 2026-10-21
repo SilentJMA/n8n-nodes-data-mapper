@@ -182,7 +182,7 @@ A **target profile** describes the structure you want to map into. Paste it into
 
 ### Paste or upload
 
-**Target Profile** has two sources:
+**Provide Target Profile** has two options:
 
 - **Paste It** — paste the profile text into the box. This is the only source that fills the target-field dropdown.
 - **Upload a File** — read the profile from an uploaded file. Put a node that produces a binary file before Data Mapper (for example **Read/Write Files From Disk**, a **Form Trigger** with a file-upload field, or an **HTTP Request**), then name that binary field. Auto-map reads the uploaded file directly; to pick fields from the dropdown, paste the profile instead.
@@ -195,7 +195,7 @@ With **Define Mappings** = *Map Each Column Manually*, paste a profile, then set
 
 With **Define Mappings** = *Auto-Map From Profile*, the node matches each target field to the best source field by name and builds the mapping automatically. The target's type becomes the transform (a `number` field gets *To Number*, a `datetime` field gets *Format Date*, and so on).
 
-**Auto-Map Options:**
+**Auto-Map Options** (shown for *Auto-Map From Profile*, and for *One Mapping at a Time* once **Auto-Map Remaining Target Fields** is on):
 
 | Option | Default | Description |
 | --- | --- | --- |

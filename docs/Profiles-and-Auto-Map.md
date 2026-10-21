@@ -4,7 +4,7 @@ A **target profile** describes the structure you want to map into. The node read
 
 ## Supported formats
 
-**Profile Format** is *Detect Automatically* by default.
+**Target Profile Format** is *Detect Automatically* by default.
 
 | Format | Notes |
 | --- | --- |
@@ -17,7 +17,7 @@ A **target profile** describes the structure you want to map into. The node read
 
 ## Paste or upload
 
-**Target Profile** has two sources:
+**Provide Target Profile** has two options:
 
 - **Paste It** — paste the profile text. Only this source fills the field dropdown.
 - **Upload a File** — read the profile from a binary field produced by a **Read/Write Files From Disk**, **Form Trigger** (file upload) or **HTTP Request** node. Auto-map reads it directly; to use the dropdown, paste instead.

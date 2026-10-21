@@ -58,7 +58,7 @@ interface UiMapping {
 	defaultValue?: string;
 }
 
-const show = (values: Record<string, string[]>) => ({ show: values });
+const show = (values: Record<string, Array<string | boolean>>) => ({ show: values });
 
 const transformFields: INodeProperties[] = [
 	{
@@ -248,6 +248,76 @@ const mappingFields: INodeProperties[] = [
 	},
 ];
 
+const autoOptionsProperty: INodeProperties = {
+	displayName: 'Auto-Map Options',
+	name: 'autoOptions',
+	type: 'collection',
+	placeholder: 'Add option',
+	default: {},
+	options: [
+		{
+			displayName: 'Add Auto-Map Report',
+			name: 'report',
+			type: 'boolean',
+			default: false,
+			description:
+				'Whether to add an _autoMap field listing which fields matched and which did not (JSON output only)',
+		},
+		{
+			displayName: 'Case Sensitive',
+			name: 'caseSensitive',
+			type: 'boolean',
+			default: false,
+			description: 'Whether field names must match in the same letter case',
+		},
+		{
+			displayName: 'Custom Synonyms',
+			name: 'synonyms',
+			type: 'string',
+			typeOptions: { rows: 3 },
+			default: '',
+			placeholder: 'menge=quantity\nartikel=article',
+			description:
+				'Extra name matches for auto-map, one source=target per line (or a JSON object). Qty=quantity, Amt=amount and other common abbreviations are already built in.',
+		},
+		{
+			displayName: 'Match',
+			name: 'strategy',
+			type: 'options',
+			options: [
+				{ name: 'Fuzzy (Similar Names)', value: 'fuzzy' },
+				{ name: 'Exact Names Only', value: 'exact' },
+			],
+			default: 'fuzzy',
+		},
+		{
+			displayName: 'Minimum Confidence',
+			name: 'threshold',
+			type: 'number',
+			typeOptions: { minValue: 0, maxValue: 1, numberPrecision: 2 },
+			default: 0.6,
+			description: 'How close names must be to match, from 0 (match anything) to 1 (identical names)',
+		},
+		{
+			displayName: 'Reuse a Source for Several Targets',
+			name: 'reuseSources',
+			type: 'boolean',
+			default: false,
+			description: 'Whether one source field may be mapped to more than one target field',
+		},
+		{
+			displayName: 'Unmatched Target Fields',
+			name: 'unmatched',
+			type: 'options',
+			options: [
+				{ name: 'Leave Out', value: 'skip' },
+				{ name: 'Set to Null', value: 'null' },
+			],
+			default: 'skip',
+		},
+	],
+};
+
 const exampleDefinition = JSON.stringify(
 	[
 		{ source: 'id', target: 'orderId' },
@@ -283,6 +353,7 @@ const v1Properties: INodeProperties[] = [
 				type: 'string',
 				default: 'data',
 				required: true,
+				description: 'The field that holds the JSON or XML text, e.g. the body of an HTTP Request response',
 				displayOptions: show({ inputSource: ['field'] }),
 			},
 			{
@@ -291,6 +362,7 @@ const v1Properties: INodeProperties[] = [
 				type: 'string',
 				default: 'data',
 				required: true,
+				hint: 'The name of the binary field that holds the JSON or XML file',
 				displayOptions: show({ inputSource: ['binary'] }),
 			},
 			{
@@ -337,14 +409,14 @@ const v1Properties: INodeProperties[] = [
 			},
 			{
 				displayName:
-					'Define the target structure with a profile, then map into it — pick target fields from a dropdown, or let Auto-Map match them for you',
+					'A target profile describes the output structure. With it you can pick target fields from a dropdown or let Auto-Map match them; for one-at-a-time mappings with typed target paths it is optional.',
 				name: 'profileNotice',
 				type: 'notice',
 				default: '',
 				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
 			},
 			{
-				displayName: 'Target Profile',
+				displayName: 'Provide Target Profile',
 				name: 'targetProfileSource',
 				type: 'options',
 				options: [
@@ -364,7 +436,7 @@ const v1Properties: INodeProperties[] = [
 				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
 			},
 			{
-				displayName: 'Profile',
+				displayName: 'Target Profile',
 				name: 'targetProfile',
 				type: 'string',
 				typeOptions: { rows: 6 },
@@ -375,7 +447,7 @@ const v1Properties: INodeProperties[] = [
 				displayOptions: show({ definitionMode: ['fields', 'auto'], targetProfileSource: ['paste'] }),
 			},
 			{
-				displayName: 'Profile File Field',
+				displayName: 'Target Profile File Field',
 				name: 'profileBinaryField',
 				type: 'string',
 				default: 'data',
@@ -386,7 +458,7 @@ const v1Properties: INodeProperties[] = [
 				displayOptions: show({ definitionMode: ['fields', 'auto'], targetProfileSource: ['binary'] }),
 			},
 			{
-				displayName: 'Profile Format',
+				displayName: 'Target Profile Format',
 				name: 'targetProfileFormat',
 				type: 'options',
 				// eslint-disable-next-line n8n-nodes-base/node-param-options-type-unsorted-items
@@ -519,75 +591,11 @@ const v1Properties: INodeProperties[] = [
 					'An array of mappings, or { "mappings": [...] }. Each mapping has "target" and either "source" or "value", plus optional "transform", "ifMissing", "default", "separator", "decimals", "dateInputFormat", "dateOutputFormat", "lookup", "lookupFallback" and "lookupDefault".',
 				displayOptions: show({ definitionMode: ['json'] }),
 			},
+			// Shown only where auto-map runs: Auto-Map mode, or Auto-Map Remaining Target Fields.
+			{ ...autoOptionsProperty, displayOptions: show({ definitionMode: ['auto'] }) },
 			{
-				displayName: 'Auto-Map Options',
-				name: 'autoOptions',
-				type: 'collection',
-				placeholder: 'Add option',
-				default: {},
-				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
-				options: [
-					{
-						displayName: 'Add Auto-Map Report',
-						name: 'report',
-						type: 'boolean',
-						default: false,
-						description:
-							'Whether to add an _autoMap field listing which fields matched and which did not (JSON output only)',
-					},
-					{
-						displayName: 'Case Sensitive',
-						name: 'caseSensitive',
-						type: 'boolean',
-						default: false,
-						description: 'Whether field names must match in the same letter case',
-					},
-					{
-						displayName: 'Custom Synonyms',
-						name: 'synonyms',
-						type: 'string',
-						typeOptions: { rows: 3 },
-						default: '',
-						placeholder: 'menge=quantity\nartikel=article',
-						description:
-							'Extra name matches for auto-map, one source=target per line (or a JSON object). Qty=quantity, Amt=amount and other common abbreviations are already built in.',
-					},
-					{
-						displayName: 'Match',
-						name: 'strategy',
-						type: 'options',
-						options: [
-							{ name: 'Fuzzy (Similar Names)', value: 'fuzzy' },
-							{ name: 'Exact Names Only', value: 'exact' },
-						],
-						default: 'fuzzy',
-					},
-					{
-						displayName: 'Minimum Confidence',
-						name: 'threshold',
-						type: 'number',
-						typeOptions: { minValue: 0, maxValue: 1, numberPrecision: 2 },
-						default: 0.6,
-						description: 'How close names must be to match, from 0 (match anything) to 1 (identical names)',
-					},
-					{
-						displayName: 'Reuse a Source for Several Targets',
-						name: 'reuseSources',
-						type: 'boolean',
-						default: false,
-						description: 'Whether one source field may be mapped to more than one target field',
-					},
-					{
-						displayName: 'Unmatched Target Fields',
-						name: 'unmatched',
-						type: 'options',
-						options: [
-							{ name: 'Leave Out', value: 'skip' },
-							{ name: 'Set to Null', value: 'null' },
-						],
-						default: 'skip',
-					},
-				],
+				...autoOptionsProperty,
+				displayOptions: show({ definitionMode: ['fields'], mappingLayout: ['list'], autoMapRemaining: [true] }),
 			},
 			{
 				displayName: 'Unmapped Fields',
@@ -618,15 +626,18 @@ const v1Properties: INodeProperties[] = [
 				],
 				default: 'json',
 			},
-			{
-				displayName: 'Put Output in Field',
-				name: 'outputField',
-				type: 'string',
-				default: '',
-				placeholder: 'xml',
-				description: 'Field for the XML or CSV text. Leave empty to use "xml" or "csv".',
-				displayOptions: show({ outputFormat: ['xml', 'csv'] }),
-			},
+			// One copy per format, so the placeholder and description match the chosen format.
+			...(['xml', 'csv'] as const).map(
+				(format): INodeProperties => ({
+					displayName: 'Put Output in Field',
+					name: 'outputField',
+					type: 'string',
+					default: '',
+					placeholder: format,
+					description: `Field for the ${format.toUpperCase()} text. Leave empty to use "${format}".`,
+					displayOptions: show({ outputFormat: [format] }),
+				}),
+			),
 			{
 				displayName: 'Put Output File in Field',
 				name: 'outputBinaryField',
@@ -635,15 +646,17 @@ const v1Properties: INodeProperties[] = [
 				required: true,
 				displayOptions: show({ outputFormat: ['xmlFile', 'jsonFile', 'csvFile'] }),
 			},
-			{
-				displayName: 'File Name',
-				name: 'fileName',
-				type: 'string',
-				default: '',
-				placeholder: 'output.xml',
-				description: 'Leave empty to name the file output with the matching extension',
-				displayOptions: show({ outputFormat: ['xmlFile', 'jsonFile', 'csvFile'] }),
-			},
+			...(['xml', 'json', 'csv'] as const).map(
+				(ext): INodeProperties => ({
+					displayName: 'File Name',
+					name: 'fileName',
+					type: 'string',
+					default: '',
+					placeholder: `output.${ext}`,
+					description: `Leave empty to name the file output.${ext}`,
+					displayOptions: show({ outputFormat: [`${ext}File`] }),
+				}),
+			),
 			{
 				displayName: 'Root Element',
 				name: 'rootElement',
@@ -677,7 +690,7 @@ const v1Properties: INodeProperties[] = [
 						type: 'boolean',
 						default: false,
 						description:
-							"Whether to put ' before values starting with =, +, -, @, tab or CR so spreadsheets don't run them as formulas (CSV injection)",
+							"Whether to put ' before values starting with =, +, -, @, tab or CR so spreadsheets don't run them as formulas (CSV injection). Negative numbers then start with ' too.",
 					},
 					{
 						displayName: 'Header Row',
@@ -753,7 +766,7 @@ export class DataMapper implements INodeType {
 		version: [1, 2],
 		defaultVersion: 1,
 		subtitle:
-			'={{ $parameter["targetFormat"] ? "Map to " + $parameter["targetFormat"].toUpperCase() : $parameter["definitionMode"] === "auto" ? "Auto-map from profile" : $parameter["definitionMode"] === "json" ? "JSON definition" : "Field mappings" }}',
+			'={{ $parameter["targetFormat"] ? "Map to " + $parameter["targetFormat"].toUpperCase() : ($parameter["definitionMode"] === "auto" ? "Auto-map" : $parameter["definitionMode"] === "json" ? "JSON definition" : "Field mappings") + " → " + { json: "JSON", jsonFile: "JSON file", xml: "XML", xmlFile: "XML file", csv: "CSV", csvFile: "CSV file" }[$parameter["outputFormat"] || "json"] }}',
 		description: 'Map and transform data between structures and output XML, JSON or CSV',
 		defaults: {
 			name: 'Data Mapper',
@@ -771,14 +784,14 @@ export class DataMapper implements INodeType {
 		loadOptions: {
 			async getSourceFields(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
 				const text = (safeParam(this, 'sourceProfile') ?? '').trim();
-				if (text === '') return [{ name: 'Paste A Source Profile First', value: '' }];
+				if (text === '') return [{ name: 'Paste a Source Profile First', value: '' }];
 				if (text.startsWith('=') || text.includes('{{')) {
-					return [{ name: 'Source Profile Is Set By An Expression — Type The Source Path Instead', value: '' }];
+					return [{ name: 'The Source Profile Is an Expression — Type the Source Path Instead', value: '' }];
 				}
 				const format = (safeParam(this, 'sourceProfileFormat') ?? 'auto') as ProfileFormat;
 				try {
 					const fields = sourceFields(parseProfile(text, format));
-					if (fields.length === 0) return [{ name: 'No Fields Found In The Source Profile', value: '' }];
+					if (fields.length === 0) return [{ name: 'No Fields Found in the Source Profile', value: '' }];
 					return fields.map((field) => ({
 						name: `${field.path}${field.repeating ? ' (list)' : ''} [${field.type}]`,
 						value: field.path,
@@ -791,18 +804,18 @@ export class DataMapper implements INodeType {
 				const source = safeParam(this, 'targetProfileSource') ?? 'paste';
 				if (source !== 'paste') {
 					return [
-						{ name: 'Using An Uploaded File — Use Auto-Map, Or Paste To Pick Fields', value: '' },
+						{ name: 'The Profile Comes From an Uploaded File — Use Auto-Map, or Paste It to Pick Fields', value: '' },
 					];
 				}
 				const text = (safeParam(this, 'targetProfile') ?? '').trim();
-				if (text === '') return [{ name: 'Paste A Profile First', value: '' }];
+				if (text === '') return [{ name: 'Paste a Target Profile First', value: '' }];
 				if (text.startsWith('=') || text.includes('{{')) {
-					return [{ name: 'Profile Is Set By An Expression — Use Auto-Map To Match Fields', value: '' }];
+					return [{ name: 'The Target Profile Is an Expression — Use Auto-Map to Match Fields', value: '' }];
 				}
 				const format = (safeParam(this, 'targetProfileFormat') ?? 'auto') as ProfileFormat;
 				try {
 					const profile = parseProfile(text, format);
-					if (profile.fields.length === 0) return [{ name: 'No Fields Found In The Profile', value: '' }];
+					if (profile.fields.length === 0) return [{ name: 'No Fields Found in the Target Profile', value: '' }];
 					return profile.fields.map((field) => ({
 						name: `${field.path}${field.repeating ? ' (list)' : ''} [${field.type}]`,
 						value: field.path,
@@ -837,7 +850,9 @@ export class DataMapper implements INodeType {
 						: {};
 				let mapped = applyMappings(input, rules, start);
 				if (order && profile) mapped = orderByProfile(mapped, profile);
-				if (report) mapped._autoMap = report;
+				// The report is documented as JSON-only; in XML or CSV it would end up in the document.
+				const format = this.getNodeParameter('outputFormat', i) as OutputFormat;
+				if (report && (format === 'json' || format === 'jsonFile')) mapped._autoMap = report;
 				if (combineCsv) {
 					csvRecords.push({ mapped, index: i });
 					csvProfile ??= profile;
@@ -963,13 +978,19 @@ function readAutoOptions(ctx: IExecuteFunctions, itemIndex: number): AutoMapOpti
 
 function uiMappingToRule(m: UiMapping, ctx: IExecuteFunctions, itemIndex: number): MappingRule {
 	let target = m.target;
-	if (m.targetMode === 'profile') {
+	// Before 0.4.2 Target defaulted to Custom Path, so saved mappings only carry `target`
+	// and now resolve to the new "From Target Profile" default: keep using their path.
+	if (m.targetMode === 'profile' && (m.targetField || !m.target)) {
 		target = m.targetField ?? '';
 		if (target === '') {
 			throw new NodeOperationError(
 				ctx.getNode(),
 				'A mapping is set to "From Target Profile" but no target field is selected',
-				{ itemIndex },
+				{
+					itemIndex,
+					description:
+						'Pick a field from the Target Field dropdown (paste a target profile first), or set Target to Custom Path and type the path.',
+				},
 			);
 		}
 	}
@@ -1095,7 +1116,14 @@ async function buildRules(
 	const entries = (ctx.getNodeParameter('mappings.mapping', itemIndex, []) as UiMapping[]).filter(Boolean);
 	const rules = entries.map((m) => uiMappingToRule(m, ctx, itemIndex));
 
-	if (profile && (ctx.getNodeParameter('autoMapRemaining', itemIndex, false) as boolean) === true) {
+	if ((ctx.getNodeParameter('autoMapRemaining', itemIndex, false) as boolean) === true) {
+		if (!profile) {
+			throw new NodeOperationError(
+				ctx.getNode(),
+				'Auto-Map Remaining Target Fields needs a target profile. Paste one in, or upload a profile file.',
+				{ itemIndex },
+			);
+		}
 		const covered = new Set(rules.map((r) => r.target));
 		const remaining: Profile = { ...profile, fields: profile.fields.filter((f) => !covered.has(f.path)) };
 		const result = autoMap(flattenSource(input), remaining, readAutoOptions(ctx, itemIndex));

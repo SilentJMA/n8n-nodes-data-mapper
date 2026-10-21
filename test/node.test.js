@@ -271,3 +271,78 @@ test('v1: CSV File output, one file per item', async () => {
 	assert.equal(out[0].binary.data.mimeType, 'text/csv');
 	assert.equal(out[0].binary.data.data, 'Id\nA1\n');
 });
+
+test('mappings saved before 0.4.2 (Custom Path was the default) keep their target path', async () => {
+	// n8n fills the new "From Target Profile" default into mappings that only stored `target`
+	const [out] = await run(
+		{ ...base, mappings: { mapping: [uiMapping({ source: 'id', target: 'orderId', targetMode: 'profile' })] } },
+		[{ json: { id: 7 } }],
+	);
+	assert.deepEqual(out[0].json, { orderId: 7 });
+});
+
+test('From Target Profile with no field selected explains how to fix it', async () => {
+	await assert.rejects(
+		run({ ...base, mappings: { mapping: [uiMapping({ source: 'id', targetMode: 'profile' })] } }, [{ json: { id: 1 } }]),
+		(error) => /no target field is selected/.test(error.message) && /Custom Path/.test(error.description),
+	);
+});
+
+test('Auto-Map Remaining without a target profile fails with a clear message', async () => {
+	await assert.rejects(
+		run(
+			{
+				...base,
+				autoMapRemaining: true,
+				mappings: { mapping: [uiMapping({ source: 'id', target: 'x', targetMode: 'custom' })] },
+			},
+			[{ json: { id: 1 } }],
+		),
+		/needs a target profile/,
+	);
+});
+
+test('auto-map report is added to JSON output only', async () => {
+	const params = {
+		...base,
+		definitionMode: 'auto',
+		targetProfile: '{"orderId":"","qty":0}',
+		autoOptions: { report: true },
+	};
+	const input = [{ json: { orderId: 1, Qty: 2 } }];
+	const [json] = await run(params, input);
+	assert.ok(json[0].json._autoMap);
+	const [xml] = await run({ ...params, outputFormat: 'xml' }, input);
+	assert.doesNotMatch(xml[0].json.xml, /_autoMap/);
+	const [csv] = await run({ ...params, outputFormat: 'csv' }, input);
+	assert.doesNotMatch(csv[0].json.csv, /_autoMap/);
+});
+
+test('Auto-Map Options only show where auto-map runs', () => {
+	const props = new DataMapper().description.properties.filter((p) => p.name === 'autoOptions');
+	assert.deepEqual(
+		props.map((p) => {
+			const { '@version': version, ...rest } = p.displayOptions.show;
+			assert.deepEqual(version, [1]);
+			return rest;
+		}),
+		[{ definitionMode: ['auto'] }, { definitionMode: ['fields'], mappingLayout: ['list'], autoMapRemaining: [true] }],
+	);
+});
+
+test('output field and file name placeholders match the output format', () => {
+	const props = new DataMapper().description.properties;
+	const placeholder = (name, format) =>
+		props.find((p) => p.name === name && p.displayOptions.show.outputFormat?.includes(format))?.placeholder;
+	assert.equal(placeholder('outputField', 'xml'), 'xml');
+	assert.equal(placeholder('outputField', 'csv'), 'csv');
+	assert.equal(placeholder('fileName', 'jsonFile'), 'output.json');
+	assert.equal(placeholder('fileName', 'csvFile'), 'output.csv');
+});
+
+test('version 2 Target Profile is optional so a profile file can be used instead', () => {
+	const prop = new DataMapper().description.properties.find(
+		(p) => p.name === 'targetProfile' && p.displayOptions.show['@version'].includes(2),
+	);
+	assert.notEqual(prop.required, true);
+});

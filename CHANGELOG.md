@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.3] - 2026-10-21
+
+### Fixed
+
+- **Workflows built before 0.4.2 work again.** 0.4.2 changed a mapping's **Target** default from *Custom Path* to *From Target Profile*, so mappings saved with the old default stopped with "no target field is selected". Those mappings now keep their saved target path.
+- The **auto-map report** (`_autoMap`) is now only added to JSON output, as documented. Before, it ended up inside XML documents.
+- **Auto-Map Remaining Target Fields** without a target profile now stops with a clear message, instead of silently mapping nothing.
+- Visual mapper (node version 2): **Target Profile** is no longer marked required, so *Options → Read Profile From Binary Field* can be used on its own.
+
+### Changed
+
+- **Auto-Map Options** only appear where auto-map runs: *Auto-Map From Profile*, or *One Mapping at a Time* with **Auto-Map Remaining Target Fields** turned on.
+- Clearer target profile labels: **Provide Target Profile** (Paste It / Upload a File), **Target Profile**, **Target Profile File Field** and **Target Profile Format**, matching the Source Profile fields. The profile notice now says when a profile is optional.
+- **Put Output in Field** and **File Name** show placeholders for the chosen format (`csv`, `output.json`, ...) instead of always showing XML.
+- The node subtitle on the canvas now shows the output format, e.g. *Field mappings → CSV*.
+- Clearer dropdown messages when no profile is set, a hint on the "no target field selected" error, descriptions for the input fields, and a note that **Escape Formulas** also prefixes negative numbers.
+
+[0.4.3]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.3
+
 ## [0.4.2] - 2026-10-20
 
 ### Added

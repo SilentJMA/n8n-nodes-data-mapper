@@ -104,10 +104,10 @@ export const visualProperties: INodeProperties[] = [
 		type: 'string',
 		typeOptions: { rows: 8 },
 		default: '',
-		required: true,
 		placeholder:
 			'Paste an XML/JSON/Flat File profile component, JSON Schema, sample JSON or XML, XSD, or a CSV header row',
-		description: 'The structure to map into. Its fields appear below as the targets.',
+		description:
+			'The structure to map into. Its fields appear below as the targets. To read it from an uploaded file instead, use Options → Read Profile From Binary Field.',
 	},
 	{
 		displayName: 'Target Fields',
@@ -660,7 +660,7 @@ function buildRules(
 		if (!profile) {
 			throw new NodeOperationError(
 				ctx.getNode(),
-				'Map Automatically needs a target profile. Paste one into the Target Profile box.',
+				'Map Automatically needs a target profile. Paste one into the Target Profile box, or set Options → Read Profile From Binary Field.',
 				{ itemIndex },
 			);
 		}
