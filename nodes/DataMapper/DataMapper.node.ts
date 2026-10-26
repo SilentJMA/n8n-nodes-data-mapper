@@ -54,6 +54,7 @@ interface UiMapping {
 	lookupTable?: string;
 	lookupFallback?: LookupFallback;
 	lookupDefault?: string;
+	template?: string;
 	ifMissing: IfMissing;
 	defaultValue?: string;
 }
@@ -65,21 +66,25 @@ const transformFields: INodeProperties[] = [
 		displayName: 'Transform',
 		name: 'transform',
 		type: 'options',
-		// eslint-disable-next-line n8n-nodes-base/node-param-options-type-unsorted-items
 		options: [
-			{ name: 'None', value: 'none' },
-			{ name: 'To String', value: 'string' },
-			{ name: 'To Number', value: 'number' },
-			{ name: 'To Integer', value: 'integer' },
-			{ name: 'Round', value: 'round', description: 'Round a number to a number of decimal places' },
-			{ name: 'To Boolean', value: 'boolean', description: 'Accepts true/false, yes/no, 1/0, on/off' },
-			{ name: 'Trim', value: 'trim' },
-			{ name: 'Uppercase', value: 'uppercase' },
-			{ name: 'Lowercase', value: 'lowercase' },
+			{
+				name: 'Concatenate',
+				value: 'concat',
+				description: 'Combine the value with fixed text and other fields, e.g. "{value} {lastName}"',
+			},
 			{ name: 'Format Date', value: 'date', description: 'Read a date and write it in another format (UTC)' },
-			{ name: 'Split Into List', value: 'split', description: 'Turn "a,b,c" into ["a", "b", "c"]' },
 			{ name: 'Join List', value: 'join', description: 'Turn ["a", "b", "c"] into "a,b,c"' },
 			{ name: 'Lookup Table', value: 'lookup', description: 'Replace codes using a key=value table' },
+			{ name: 'Lowercase', value: 'lowercase' },
+			{ name: 'None', value: 'none' },
+			{ name: 'Round', value: 'round', description: 'Round a number to a number of decimal places' },
+			{ name: 'Split Into List', value: 'split', description: 'Turn "a,b,c" into ["a", "b", "c"]' },
+			{ name: 'To Boolean', value: 'boolean', description: 'Accepts true/false, yes/no, 1/0, on/off' },
+			{ name: 'To Integer', value: 'integer' },
+			{ name: 'To Number', value: 'number' },
+			{ name: 'To String', value: 'string' },
+			{ name: 'Trim', value: 'trim' },
+			{ name: 'Uppercase', value: 'uppercase' },
 		],
 		default: 'none',
 	},
@@ -89,6 +94,16 @@ const transformFields: INodeProperties[] = [
 		type: 'string',
 		default: ',',
 		displayOptions: show({ transform: ['split', 'join'] }),
+	},
+	{
+		displayName: 'Concatenate Template',
+		name: 'template',
+		type: 'string',
+		default: '{value}',
+		placeholder: '{value} {customer.lastName}',
+		description:
+			'Text to build. {value} is this field\'s value, {path} reads another input field (e.g. {customer.lastName}, {lines[*].sku} for the same list element); anything else is kept as typed.',
+		displayOptions: show({ transform: ['concat'] }),
 	},
 	{
 		displayName: 'Decimal Places',
@@ -394,15 +409,14 @@ const v1Properties: INodeProperties[] = [
 				displayName: 'Source Profile Format',
 				name: 'sourceProfileFormat',
 				type: 'options',
-				// eslint-disable-next-line n8n-nodes-base/node-param-options-type-unsorted-items
 				options: [
+					{ name: 'CSV Header', value: 'csv' },
 					{ name: 'Detect Automatically', value: 'auto' },
-					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'JSON Schema', value: 'jsonSchema' },
+					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'Sample JSON', value: 'sampleJson' },
 					{ name: 'Sample XML', value: 'sampleXml' },
 					{ name: 'XSD', value: 'xsd' },
-					{ name: 'CSV Header', value: 'csv' },
 				],
 				default: 'auto',
 				displayOptions: show({ definitionMode: ['fields'] }),
@@ -461,15 +475,14 @@ const v1Properties: INodeProperties[] = [
 				displayName: 'Target Profile Format',
 				name: 'targetProfileFormat',
 				type: 'options',
-				// eslint-disable-next-line n8n-nodes-base/node-param-options-type-unsorted-items
 				options: [
+					{ name: 'CSV Header', value: 'csv' },
 					{ name: 'Detect Automatically', value: 'auto' },
-					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'JSON Schema', value: 'jsonSchema' },
+					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'Sample JSON', value: 'sampleJson' },
 					{ name: 'Sample XML', value: 'sampleXml' },
 					{ name: 'XSD', value: 'xsd' },
-					{ name: 'CSV Header', value: 'csv' },
 				],
 				default: 'auto',
 				description: 'The kind of profile you provided. Detect Automatically works for most profiles.',
@@ -510,6 +523,14 @@ const v1Properties: INodeProperties[] = [
 				],
 				default: 'list',
 				displayOptions: show({ definitionMode: ['fields'] }),
+			},
+			{
+				// n8n clears the settings of whatever an option hides, and nodes cannot prevent it.
+				displayName:
+					'Switching Define Mappings or Mapping Layout clears the mappings set in the other option, and undo does not bring them back. To try another option safely, duplicate the node first.',
+				name: 'switchWarning',
+				type: 'notice',
+				default: '',
 			},
 			{
 				displayName: 'Target Fields',
@@ -1017,6 +1038,7 @@ function uiMappingToRule(m: UiMapping, ctx: IExecuteFunctions, itemIndex: number
 		lookup: m.lookupTable,
 		lookupFallback: m.lookupFallback,
 		lookupDefault: m.lookupDefault,
+		template: m.template,
 		ifMissing: m.ifMissing,
 		default: m.defaultValue,
 	};
@@ -1040,6 +1062,7 @@ interface FieldTransformUi {
 	lookupTable?: string;
 	lookupFallback?: LookupFallback;
 	lookupDefault?: string;
+	template?: string;
 }
 
 /** Applies the per-field transforms (Fill Target Fields layout) onto the rules whose target matches. */
@@ -1057,6 +1080,7 @@ function applyFieldTransforms(ctx: IExecuteFunctions, itemIndex: number, rules: 
 			rule.lookup = it.lookupTable;
 			rule.lookupFallback = it.lookupFallback;
 			rule.lookupDefault = it.lookupDefault;
+			rule.template = it.template;
 			rule.lenient = true;
 		}
 	}

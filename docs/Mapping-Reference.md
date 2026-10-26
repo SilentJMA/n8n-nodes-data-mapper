@@ -32,4 +32,6 @@ Mappings run in order; a later mapping to the same target overwrites an earlier 
 | **Unmapped Fields** | *Drop* keeps only mapped fields; *Keep* starts from a copy of the input. |
 | **Output Format** | *JSON*, *JSON File*, *XML* or *XML File*. |
 
+> **Note:** switching **Define Mappings** or **Mapping Layout** clears the mappings set in the other option. n8n removes the settings an option hides, and undo does not restore them, so duplicate the node before trying another option. For static text in *Fill Target Fields*, switch the field to **Expression** and type the text.
+
 Turn on **Settings → On Error → Continue** to output failed items as `{ "error": "…" }`. Every error names the mapping that caused it.

@@ -318,3 +318,14 @@ test('list positions without a value are skipped, not written empty', () => {
 	const out = applyMappings({}, [{ value: ['a', 'b', 'c'], spread: true, target: 'order.line[*].sku' }, ...rules], {});
 	assert.deepEqual(out, { order: { line: [{ sku: 'a', discount: '-5.00' }, { sku: 'b' }, { sku: 'c' }] } });
 });
+
+test('source dropdown offers a Static Text hint that maps nothing', async () => {
+	const ctx = { getCurrentNodeParameter: (name) => ({ targetProfile: '{"a":"","b":""}', sourceProfile: '{"x":1}' })[name] };
+	const { fields } = await getProfileFields.call(ctx);
+	const options = fields[0].options;
+	assert.equal(options[0].name, '(Not Mapped)');
+	assert.match(options[1].name, /Static Text/);
+	const hint = options[1].value;
+	const rules = buildDropRules({ a: hint, b: '=EUR' }, { a: hint, b: 'EUR' }, undefined, { convertTypes: true, keepEmpty: false });
+	assert.deepEqual(rules.map((r) => [r.target, r.value]), [['b', 'EUR']]);
+});

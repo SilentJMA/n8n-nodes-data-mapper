@@ -134,7 +134,7 @@ Mappings run in order, and a later mapping to the same target overwrites an earl
 | **Mappings** | The list of mappings. Each has a **Source** (*Input Field* path, *From Source Profile* dropdown, or *Fixed Value*, which can be an expression), a **Target** (*Custom Path* you type, or *From Target Profile* picked from a dropdown), an optional **Transform**, and **If Source Is Missing**: *Leave Out* (default), *Set to Null*, *Use Default* or *Stop With Error*. |
 | **Transform a Field** | *Fill Target Fields.* Pick a target field and apply a transform (trim, number, date, lookup, split/join, ...). Shown as a list under the fields. |
 | **CSV Options** | *CSV / CSV File output.* Delimiter, header row, line ending, one CSV for all items, and formula escaping. |
-| **Mapping Layout** | *Map Each Column Manually.* *One Mapping at a Time* (row-by-row list) or *Fill Target Fields* — lists every target-profile field and you set the source for each (from the Source Profile dropdown, a drag, or an expression). |
+| **Mapping Layout** | *Map Each Column Manually.* *One Mapping at a Time* (row-by-row list) or *Fill Target Fields* — lists every target-profile field and you set the source for each (from the Source Profile dropdown, a drag, or an expression). For **static text**, hover the field, switch it to **Expression** and type the text; plain text there is used as-is. The dropdown's *(Static Text …)* entry is a reminder of this and maps nothing. On nodes saved before this version, use **Target Fields → ⋮ → Refresh Target field List** to see that entry. **Switching Define Mappings or Mapping Layout clears the mappings of the other option** (n8n removes hidden settings, and undo does not restore them), so duplicate the node before experimenting. |
 | **Auto-Map Remaining Target Fields** | *One Mapping at a Time.* Fills any profile fields you did not map by hand by matching them by name. Tuned by **Auto-Map Options** (confidence, synonyms, report, ...). |
 | **Unmapped Fields** | *Drop* outputs only mapped fields. *Keep* starts from a copy of the input and applies the mappings on top. |
 | **Output Format** | *JSON* (the item), *JSON File*, *XML* (text in a field), *XML File*, *CSV* (text in a field) or *CSV File*. |
@@ -160,6 +160,7 @@ Turn on **Settings → On Error → Continue** to output failed items as `{ "err
 | Split Into List | Separator | `"a, b"` → `["a", "b"]` |
 | Join List | Separator | `["a", "b"]` → `"a,b"`. With `items[*].sku` → `skuList` it joins the collected list. |
 | Lookup Table | Lookup Table, If No Match | Table as `key=value` lines or a JSON object. If no match: *Keep Original Value*, *Use Default*, *Set to Null* or *Stop With Error*. |
+| Concatenate | Concatenate Template | Builds text from the value, fixed text and other fields: `{value}` is this value, `{path}` reads another input field. `{value} {lastName}` → `"Ann Lee"`; `{value}-{lines[*].size}` uses the size from the same list element. A template without `{value}`, such as `Order {id}`, ignores the value. |
 
 For anything else, use a **Fixed Value** with an expression, e.g. `{{ $json.first + ' ' + $json.last }}`.
 
@@ -243,6 +244,7 @@ Set **Define Mappings** to **Using JSON** to describe the mapping as data. You c
 | `lookup` | Object or `key=value` lines, for `lookup` |
 | `lookupFallback` | `keep` (default), `default`, `null`, `error` |
 | `lookupDefault` | Value for `lookupFallback: "default"` |
+| `template` | For `concat`, e.g. `"{value} {customer.lastName}"` |
 
 Unknown properties are rejected, so a typo such as `"tranform"` fails loudly instead of being ignored.
 

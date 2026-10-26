@@ -59,7 +59,8 @@ test('v2 target fields become source-field dropdowns when a source profile is se
 	const first = withSource.fields[0];
 	assert.equal(first.type, 'options');
 	assert.deepEqual(first.options[0], { name: '(Not Mapped)', value: '' });
-	assert.deepEqual(first.options[1], {
+	assert.match(first.options[1].name, /Static Text/);
+	assert.deepEqual(first.options[2], {
 		name: 'Shop › Order › Header › Id',
 		value: `${SOURCE_PREFIX}Shop.Order.Header.Id`,
 	});

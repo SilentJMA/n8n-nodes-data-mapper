@@ -319,7 +319,9 @@ test('auto-map report is added to JSON output only', async () => {
 });
 
 test('Auto-Map Options only show where auto-map runs', () => {
-	const props = new DataMapper().description.properties.filter((p) => p.name === 'autoOptions');
+	const props = new DataMapper().description.properties.filter(
+		(p) => p.name === 'autoOptions',
+	);
 	assert.deepEqual(
 		props.map((p) => {
 			const { '@version': version, ...rest } = p.displayOptions.show;
@@ -345,4 +347,40 @@ test('version 2 Target Profile is optional so a profile file can be used instead
 		(p) => p.name === 'targetProfile' && p.displayOptions.show['@version'].includes(2),
 	);
 	assert.notEqual(prop.required, true);
+});
+
+test('Concatenate combines the value with text and other fields', async () => {
+	const [out] = await run(
+		{
+			...base,
+			mappings: {
+				mapping: [
+					uiMapping({ source: 'first', target: 'fullName', transform: 'concat', template: '{value} {last}' }),
+					uiMapping({ source: 'lines[*].sku', target: 'lines[*].code', transform: 'concat', template: '{value}-{lines[*].size} ({id})' }),
+					uiMapping({ sourceType: 'value', value: 'x', target: 'label', transform: 'concat', template: 'Order {id}' }),
+				],
+			},
+		},
+		[{ json: { id: 7, first: 'Ann', last: 'Lee', lines: [{ sku: 'A', size: 'M' }, { sku: 'B', size: 'L' }] } }],
+	);
+	assert.deepEqual(out[0].json, {
+		fullName: 'Ann Lee',
+		lines: [{ code: 'A-M (7)' }, { code: 'B-L (7)' }],
+		label: 'Order 7',
+	});
+});
+
+test('Concatenate works in a JSON definition and leaves unknown placeholders empty', async () => {
+	const [out] = await run(
+		{ ...base, definitionMode: 'json', mappingJson: '[{"source":"a","target":"b","transform":"concat","template":"{value}/{missing}/{"}]' },
+		[{ json: { a: 'x' } }],
+	);
+	assert.deepEqual(out[0].json, { b: 'x//{' });
+});
+
+test('a notice warns that switching mapping options clears the other mappings', () => {
+	const props = new DataMapper().description.properties;
+	const notice = props.find((p) => p.name === 'switchWarning');
+	assert.equal(notice.type, 'notice');
+	assert.ok(props.indexOf(notice) === props.findIndex((p) => p.name === 'mappingLayout') + 1);
 });

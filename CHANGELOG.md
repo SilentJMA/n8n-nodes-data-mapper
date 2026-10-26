@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.4] - 2026-10-26
+
+### Fixed
+
+- Passes n8n's community package scan again: the Transform and Profile Format dropdowns are now in alphabetical order, as the scan requires (it ignores inline lint exceptions). Defaults are unchanged.
+
+### Added
+
+- **Concatenate transform.** Builds text from the value, fixed text and other input fields with a template such as `{value} {customer.lastName}`. In a list, `{lines[*].size}` reads the element the value comes from. Available in every Transform menu and as `"transform": "concat"` with `"template"` in JSON definitions.
+- **Static text in Fill Target Fields.** Each field's source dropdown now starts with a *(Static Text …)* entry explaining that you switch the field to **Expression** and type the text, which is then written as-is. Nodes saved earlier show it after **Refresh Target field List**.
+
+### Changed
+
+- A notice under **Mapping Layout** now warns that switching **Define Mappings** or **Mapping Layout** clears the mappings of the other option. The n8n editor removes the settings an option hides and undo does not restore them, so the notice suggests duplicating the node first.
+
+[0.4.4]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.4
+
 ## [0.4.3] - 2026-10-21
 
 ### Fixed

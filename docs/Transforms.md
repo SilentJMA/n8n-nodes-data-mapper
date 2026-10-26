@@ -13,5 +13,6 @@
 | Split Into List | Separator | `"a, b"` → `["a", "b"]` |
 | Join List | Separator | `["a", "b"]` → `"a,b"` |
 | Lookup Table | Lookup Table, If No Match | `key=value` lines or a JSON object; on no match keep / default / null / error. |
+| Concatenate | Concatenate Template | `{value} {lastName}` → `"Ann Lee"`. `{value}` is this value, `{path}` reads another input field (with `[*]`, from the same list element); other text is kept as typed. |
 
 For anything else, use a **Fixed Value** with an expression, e.g. `{{ $json.first + ' ' + $json.last }}`.

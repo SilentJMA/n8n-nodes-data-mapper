@@ -268,15 +268,14 @@ export const visualProperties: INodeProperties[] = [
 				displayName: 'Profile Format',
 				name: 'profileFormat',
 				type: 'options',
-				// eslint-disable-next-line n8n-nodes-base/node-param-options-type-unsorted-items
 				options: [
+					{ name: 'CSV Header', value: 'csv' },
 					{ name: 'Detect Automatically', value: 'auto' },
-					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'JSON Schema', value: 'jsonSchema' },
+					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'Sample JSON', value: 'sampleJson' },
 					{ name: 'Sample XML', value: 'sampleXml' },
 					{ name: 'XSD', value: 'xsd' },
-					{ name: 'CSV Header', value: 'csv' },
 				],
 				default: 'auto',
 			},
@@ -302,15 +301,14 @@ export const visualProperties: INodeProperties[] = [
 				displayName: 'Source Profile Format',
 				name: 'sourceProfileFormat',
 				type: 'options',
-				// eslint-disable-next-line n8n-nodes-base/node-param-options-type-unsorted-items
 				options: [
+					{ name: 'CSV Header', value: 'csv' },
 					{ name: 'Detect Automatically', value: 'auto' },
-					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'JSON Schema', value: 'jsonSchema' },
+					{ name: 'Profile Component (XML/JSON/Flat File)', value: 'component' },
 					{ name: 'Sample JSON', value: 'sampleJson' },
 					{ name: 'Sample XML', value: 'sampleXml' },
 					{ name: 'XSD', value: 'xsd' },
-					{ name: 'CSV Header', value: 'csv' },
 				],
 				default: 'auto',
 			},
@@ -473,6 +471,8 @@ export async function getProfileFields(this: ILoadOptionsFunctions): Promise<Res
 
 /** Value prefix for a source field picked from the Source Profile dropdown. */
 export const SOURCE_PREFIX = 'src::';
+/** Value of the "Static Text" dropdown entry; it only explains how to type text, so it maps nothing. */
+export const STATIC_TEXT_HINT = 'static::';
 
 function loadSourceOptions(ctx: ILoadOptionsFunctions): INodePropertyOptions[] | undefined {
 	let text = '';
@@ -495,6 +495,11 @@ function loadSourceOptions(ctx: ILoadOptionsFunctions): INodePropertyOptions[] |
 	if (fields.length === 0) return undefined;
 	return [
 		{ name: '(Not Mapped)', value: '' },
+		// A dropdown cannot take typed text; this entry points to the Expression toggle, where plain text is used as-is.
+		{
+			name: '(Static Text: Switch This Field to Expression and Type It)',
+			value: STATIC_TEXT_HINT,
+		},
 		...fields.map((field) => ({ name: fieldDisplayName(field), value: `${SOURCE_PREFIX}${field.path}` })),
 	];
 }
@@ -613,7 +618,7 @@ export function buildDropRules(
 		const target = decodeFieldId(id);
 		const rawValue = raw[id];
 		const value = resolved[id];
-		if (isEmpty(rawValue) && isEmpty(value)) {
+		if ((isEmpty(rawValue) && isEmpty(value)) || rawValue === STATIC_TEXT_HINT) {
 			if (options.keepEmpty) valueRules.push({ value: '', target });
 			continue;
 		}

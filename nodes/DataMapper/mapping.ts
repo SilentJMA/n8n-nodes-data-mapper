@@ -11,7 +11,8 @@ export type Transform =
 	| 'date'
 	| 'split'
 	| 'join'
-	| 'lookup';
+	| 'lookup'
+	| 'concat';
 
 export type IfMissing = 'skip' | 'null' | 'default' | 'error';
 export type LookupFallback = 'keep' | 'default' | 'null' | 'error';
@@ -32,6 +33,8 @@ export interface MappingRule {
 	lookup?: Record<string, unknown> | string;
 	lookupFallback?: LookupFallback;
 	lookupDefault?: unknown;
+	/** Concatenate only: text with {value} for this value and {path} for other input fields. */
+	template?: string;
 	/** Fixed value only: when the value is an array and the target has [*], write element i to position i. */
 	spread?: boolean;
 	/** When a type conversion fails, keep the original value instead of stopping with an error. */
@@ -279,12 +282,12 @@ function applyRule(input: unknown, rule: MappingRule, output: Record<string, unk
 			for (const { indices, value } of spreadPositions(rule.value, targetWildcards)) {
 				// A list position without a value (null/undefined) means "nothing here" for that element.
 				if (value === null || value === undefined) continue;
-				const final = finalize(value, rule);
+				const final = finalize(value, rule, { input, indices });
 				if (final !== SKIP) setAt(output, targetTokens, indices, final, rule.target);
 			}
 			return;
 		}
-		const value = finalize(rule.value, rule);
+		const value = finalize(rule.value, rule, { input, indices: [] });
 		if (value === SKIP) return;
 		if (targetWildcards > 0) broadcast(output, targetTokens, value, rule.target);
 		else setAt(output, targetTokens, [], value, rule.target);
@@ -300,7 +303,7 @@ function applyRule(input: unknown, rule: MappingRule, output: Record<string, unk
 			sourceWildcards = countWildcards(expanded);
 		} else {
 			const found = resolvePath(input, expanded).find((entry) => entry.value !== undefined);
-			const final = finalize(found?.value, rule);
+			const final = finalize(found?.value, rule, { input, indices: found?.indices ?? [] });
 			if (final === SKIP) return;
 			if (broadcast(output, targetTokens, final, rule.target) === 0) {
 				setAt(output, targetTokens, new Array(targetWildcards).fill(0), final, rule.target);
@@ -319,7 +322,7 @@ function applyRule(input: unknown, rule: MappingRule, output: Record<string, unk
 	if (targetWildcards === sourceWildcards) {
 		if (resolved.length === 0 && sourceWildcards === 0) resolved.push({ indices: [], value: undefined });
 		for (const { indices, value } of resolved) {
-			const final = finalize(value, rule);
+			const final = finalize(value, rule, { input, indices });
 			if (final !== SKIP) setAt(output, targetTokens, indices, final, rule.target);
 		}
 		return;
@@ -338,7 +341,7 @@ function applyRule(input: unknown, rule: MappingRule, output: Record<string, unk
 		const keep = indices.slice(0, targetWildcards);
 		const key = keep.join(',');
 		if (!groups.has(key)) groups.set(key, { indices: keep, values: [] });
-		const final = finalize(value, perValueRule);
+		const final = finalize(value, perValueRule, { input, indices });
 		if (final !== SKIP) groups.get(key)!.values.push(final);
 	}
 	for (const { indices, values } of groups.values()) {
@@ -364,7 +367,7 @@ function spreadPositions(value: unknown[], depth: number): Resolved[] {
 	return results;
 }
 
-function finalize(raw: unknown, rule: MappingRule): unknown {
+function finalize(raw: unknown, rule: MappingRule, context?: TransformContext): unknown {
 	const value = raw;
 	if (isMissing(value)) {
 		switch (rule.ifMissing ?? 'skip') {
@@ -378,11 +381,11 @@ function finalize(raw: unknown, rule: MappingRule): unknown {
 				throw new MappingError(`Source "${rule.source ?? ''}" was not found in the input`);
 		}
 	}
-	if (!rule.lenient) return applyTransform(value, rule);
+	if (!rule.lenient) return applyTransform(value, rule, context);
 	let converted: unknown = value;
 	let failed = false;
 	try {
-		converted = applyTransform(value, rule);
+		converted = applyTransform(value, rule, context);
 	} catch {
 		failed = true;
 	}
@@ -392,9 +395,40 @@ function finalize(raw: unknown, rule: MappingRule): unknown {
 const TRUE_WORDS = new Set(['true', '1', 'yes', 'y', 'on']);
 const FALSE_WORDS = new Set(['false', '0', 'no', 'n', 'off', '']);
 
-export function applyTransform(value: unknown, rule: MappingRule): unknown {
+/** Where a value sits, so Concatenate can read other fields of the same input and list element. */
+export interface TransformContext {
+	input: unknown;
+	indices: number[];
+}
+
+const asText = (value: unknown): string => {
+	if (value === null || value === undefined) return '';
+	if (Array.isArray(value)) return value.map(asText).join(',');
+	return typeof value === 'object' ? JSON.stringify(value) : String(value);
+};
+
+/** Fills {value} and {path} placeholders. A [*] in a path picks the element the value comes from. */
+function concat(value: unknown, rule: MappingRule, context?: TransformContext): string {
+	return (rule.template ?? '{value}').replace(/\{([^{}]+)\}/g, (placeholder, key: string) => {
+		const path = key.trim();
+		if (path === 'value') return asText(value);
+		if (!context) return placeholder;
+		let tokens: Token[];
+		try {
+			tokens = parsePath(path);
+		} catch {
+			return placeholder;
+		}
+		const found = resolvePath(context.input, tokens).find((entry) =>
+			entry.indices.every((index, level) => context.indices[level] === undefined || context.indices[level] === index),
+		);
+		return asText(found?.value);
+	});
+}
+
+export function applyTransform(value: unknown, rule: MappingRule, context?: TransformContext): unknown {
 	const transform = rule.transform ?? 'none';
-	if (value === null && transform !== 'lookup' && transform !== 'string') return null;
+	if (value === null && transform !== 'lookup' && transform !== 'string' && transform !== 'concat') return null;
 
 	switch (transform) {
 		case 'none':
@@ -438,6 +472,8 @@ export function applyTransform(value: unknown, rule: MappingRule): unknown {
 			return (Array.isArray(value) ? value : [value]).map((v) => String(v)).join(rule.separator ?? ',');
 		case 'lookup':
 			return lookup(value, rule);
+		case 'concat':
+			return concat(value, rule, context);
 		default:
 			throw new MappingError(`Unknown transform "${String(transform)}"`);
 	}
@@ -547,6 +583,7 @@ const RULE_KEYS = new Set([
 	'lookup',
 	'lookupFallback',
 	'lookupDefault',
+	'template',
 	'spread',
 	'lenient',
 	'broadcast',
