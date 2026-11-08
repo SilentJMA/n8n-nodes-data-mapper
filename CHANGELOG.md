@@ -2,10 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.5.1] - 2026-11-08
 
 ### Fixed
 
+- **Field mappings saved before 0.4.2 work again.** They store only a target path. Since 0.4.2, Target defaults to *From Target Profile*, which hid **Target Path**, and n8n removed the hidden path when it loaded the workflow, so the run failed with "no target field is selected". Target Path now stays visible while no target field is picked, so n8n keeps it. Mappings with a picked target field and mappings set to *Custom Path* work as before. A workflow that was saved in the editor with 0.4.2 to 0.5.0 after the path was removed has lost that path; set it again.
 - The **Restructure order (fields)** node in `examples/data-mapper-examples.json` failed after import with "no target field is selected". Its mappings now set **Target** to **Custom Path**.
 
 ### Changed
@@ -45,6 +46,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - A notice under **Mapping Layout** now warns that switching **Define Mappings** or **Mapping Layout** clears the mappings of the other option. The n8n editor removes the settings an option hides and undo does not restore them, so the notice suggests duplicating the node first.
 
+[0.5.1]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.5.1
 [0.5.0]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.5.0
 [0.4.4]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.4
 

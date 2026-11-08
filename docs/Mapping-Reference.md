@@ -30,7 +30,7 @@ In a JSON definition, a mapping can end at a function input (`toFunction`, `toKe
 | **Define Mappings** | *Map Each Column Manually*, *Auto-Map From Profile*, or *Using JSON*. Under *Map Each Column Manually*, **Mapping Layout** is *One Mapping at a Time* or *Fill Target Fields* (lists every target field; set the source for each). |
 | **Target Profile** | Optional structure to map into. See [Profiles and Auto-Map](Profiles-and-Auto-Map.md). |
 | **Source Profile** | Optional structure of the incoming data (classic mode). Enables **Source: From Source Profile** with a dropdown of source fields. |
-| **Mappings** | Each has a **Source** (field path, a field from the source profile, or fixed value), a **Target** (custom path or profile field), a **Transform**, and **If Source Is Missing**. |
+| **Mappings** | Each has a **Source** (field path, a field from the source profile, or fixed value), a **Target** (custom path or profile field), a **Transform**, and **If Source Is Missing**. With **Target** set to *From Target Profile*, **Target Path** stays available until you pick a target field. |
 | **Unmapped Fields** | *Drop* keeps only mapped fields; *Keep* starts from a copy of the input. |
 | **Output Format** | *JSON*, *JSON File*, *XML* or *XML File*. |
 

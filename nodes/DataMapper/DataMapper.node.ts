@@ -242,6 +242,22 @@ const mappingFields: INodeProperties[] = [
 			'Where to write the value in the output. Each [*] matches a [*] in the source path, in order.',
 		displayOptions: show({ targetMode: ['custom'] }),
 	},
+	// Same parameter, shown while no target field is picked. Mappings saved before 0.4.2 have only a
+	// path and no Target setting, so they get the From Target Profile default. Without this, n8n
+	// drops the hidden path when it loads the workflow.
+	{
+		displayName: 'Target Path',
+		name: 'target',
+		type: 'string',
+		default: '',
+		placeholder: 'shipping.cities[*]',
+		description:
+			'Where to write the value in the output, if you do not pick a target field above. Each [*] matches a [*] in the source path, in order.',
+		displayOptions: {
+			show: { targetMode: ['profile'] },
+			hide: { targetField: [{ _cnd: { exists: true } }] },
+		},
+	},
 	...transformFields,
 	{
 		displayName: 'If Source Is Missing',
