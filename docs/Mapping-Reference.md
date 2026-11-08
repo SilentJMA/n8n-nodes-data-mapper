@@ -19,6 +19,8 @@
 
 Mappings run in order; a later mapping to the same target overwrites an earlier one.
 
+In a JSON definition, a mapping can end at a function input (`toFunction`, `toKey`) or start at a function output (`fromFunction`, `fromKey`). See [Functions](Functions.md).
+
 ## Parameters
 
 | Parameter | Description |

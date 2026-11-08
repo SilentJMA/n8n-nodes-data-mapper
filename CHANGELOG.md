@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-11-08
+
+### Added
+
+- **Functions in JSON definitions.** Add a `functions` list next to `mappings` and connect fields to function ports with `toFunction`/`toKey` and `fromFunction`/`fromKey`. Functions can take several inputs and give several outputs, and run once for every record their inputs point to.
+  - Date: Date Format, Get Current Date.
+  - Language: Japanese Character Conversion (hiragana, full- and half-width katakana).
+  - Lookup: Simple Lookup.
+  - Numeric: Absolute Value, Add, Subtract, Multiply, Divide, Ceil, Floor, Set Precision, Number Format, Running Total, Sum, Count, Line Item Increment, Sequential Value. Calculations use exact decimals.
+  - String: Left/Right Character Trim, Whitespace Trim, Append, Prepend, Concat, Replace, Remove, To Lower, To Upper, Split.
+  - User-Defined: a chain of steps in one function.
+- A Sum or Count with several groups that fills a single field gives one output item per group.
+- New [Functions](docs/Functions.md) page and README section, with a screenshot.
+
+### Unchanged
+
+- Definitions without `functions`, field mappings, auto-map and the visual mapper work exactly as in 0.4.4.
+
 ## [0.4.4] - 2026-10-26
 
 ### Fixed
@@ -17,6 +35,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - A notice under **Mapping Layout** now warns that switching **Define Mappings** or **Mapping Layout** clears the mappings of the other option. The n8n editor removes the settings an option hides and undo does not restore them, so the notice suggests duplicating the node first.
 
+[0.5.0]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.5.0
 [0.4.4]: https://github.com/SilentJMA/n8n-nodes-data-mapper/releases/tag/v0.4.4
 
 ## [0.4.3] - 2026-10-21

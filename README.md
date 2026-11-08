@@ -8,6 +8,8 @@ An [n8n](https://n8n.io) community node that **maps whatever comes in onto a tar
 
 Add a mapping for each field: pick the **source** (an input path, a field from a source profile, or a fixed value/expression) and the **target** (a path you type, or a field from a target profile), with built-in **transforms** along the way. Or let **Auto-Map** match source fields to a target profile by name. Paste a profile — an XML/JSON/Flat File profile component, JSON Schema, sample JSON or XML, XSD, or a CSV header — and its fields become selectable dropdowns on both sides.
 
+JSON definitions can also run **functions** (since 0.5.0): string, numeric, date, lookup and language functions with several inputs and outputs, totals and counters across records, and user-defined chains; see [Functions](#functions).
+
 There is also a **visual drag-and-drop mapper** (node version 2); see [below](#visual-drag-and-drop-mapper-node-version-2).
 
 Use it to turn an API response into a partner's XML order, shape database rows into a CSV export, read a supplier's XML into clean JSON, or pull the useful parts out of a large payload.
@@ -20,6 +22,7 @@ Use it to turn an API response into a partner's XML order, shape database rows i
 - [Transforms](#transforms)
 - [Target profiles and auto-map](#target-profiles-and-auto-map)
 - [Reusable JSON definitions](#reusable-json-definitions)
+- [Functions](#functions)
 - [Working with XML](#working-with-xml)
 - [Examples](#examples)
 - [Visual drag-and-drop mapper (node version 2)](#visual-drag-and-drop-mapper-node-version-2)
@@ -39,6 +42,10 @@ Use it to turn an API response into a partner's XML order, shape database rows i
 **Building XML with transforms and added fields** — attributes, nested elements, repeated items, a country lookup, rounding and a generated timestamp:
 
 ![Data Mapper producing XML output](docs/images/xml-output.webp)
+
+**A JSON definition with functions** — concatenate a name, look up a country, multiply quantity by price and number the lines, then write an XML invoice:
+
+![JSON definition with functions producing an XML invoice](docs/images/functions-json-definition.webp)
 
 ## Installation
 
@@ -247,6 +254,45 @@ Set **Define Mappings** to **Using JSON** to describe the mapping as data. You c
 | `template` | For `concat`, e.g. `"{value} {customer.lastName}"` |
 
 Unknown properties are rejected, so a typo such as `"tranform"` fails loudly instead of being ignored.
+
+A mapping can also connect to a function with `toFunction`/`toKey` or `fromFunction`/`fromKey`; see [Functions](#functions).
+
+## Functions
+
+For logic beyond one transform per field, add a `functions` list to a JSON definition. A function takes values from source fields on its input ports and writes its output ports to target fields:
+
+```json
+{
+  "mappings": [
+    { "source": "order.lines[*].qty", "target": "", "toFunction": 1, "toKey": 1 },
+    { "source": "order.lines[*].price", "target": "", "toFunction": 1, "toKey": 2 },
+    { "target": "invoice.line[*].amount", "fromFunction": 1, "fromKey": 2 }
+  ],
+  "functions": [
+    {
+      "key": 1, "type": "mathMultiply",
+      "inputs": [{ "key": 1, "name": "Value" }, { "key": 2, "name": "Value to Multiply", "default": "1" }],
+      "outputs": [{ "key": 2, "name": "Result" }]
+    }
+  ]
+}
+```
+
+| Category | Functions |
+| --- | --- |
+| Date | Date Format, Get Current Date |
+| Language | Japanese Character Conversion (hiragana, full- and half-width katakana) |
+| Lookup | Simple Lookup (a key/value table in the function) |
+| Numeric | Absolute Value, Add, Subtract, Multiply, Divide, Ceil, Floor, Set Precision, Number Format, Running Total, Sum, Count, Line Item Increment, Sequential Value |
+| String | Left/Right Character Trim, Whitespace Trim, Append, Prepend, Concat, Replace, Remove, To Lower, To Upper, Split |
+| User-Defined | A chain of steps in one function; inside it, one step may feed the next |
+
+- A function runs once per record its inputs point to: with `lines[*]` inputs, once per line.
+- A function never feeds another function directly; every mapping has a field on one side. Use a User-Defined function to chain steps.
+- Numeric functions calculate with exact decimals (`0.1 + 0.2` is `0.3`). Sum and Count total per Reset Value; Line Item Increment numbers records; Sequential Value continues across executions.
+- An empty result leaves the target field out. An input `default` is used when its value is empty.
+
+The [Functions page](docs/Functions.md) lists every function with its ports and options. Definitions without `functions` behave exactly as in earlier versions.
 
 ## Working with XML
 

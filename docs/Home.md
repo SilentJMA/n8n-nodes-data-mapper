@@ -10,6 +10,7 @@
 - [Visual Mapper](Visual-Mapper.md) — drag and drop onto a target profile, XML/JSON/CSV output
 - [Mapping Reference](Mapping-Reference.md) — paths, `[*]` wildcards, parameters
 - [Transforms](Transforms.md) — every transform and its options
+- [Functions](Functions.md) — functions in JSON definitions: several inputs and outputs, totals, lookups, chains
 - [Profiles and Auto-Map](Profiles-and-Auto-Map.md) — target profiles, upload, the field dropdown, auto-map
 - [Working with XML](Working-with-XML.md) — reading and writing XML
 - [Examples](Examples.md) — screenshots and importable workflows
@@ -18,6 +19,7 @@
 ## At a glance
 
 - **Classic mapper (default):** add a mapping per field — source path or profile field or fixed value → target path or profile field — with transforms, auto-map, or a reusable JSON definition.
+- **Functions (JSON definitions, 0.5.0):** string, numeric, date, lookup and language functions with several inputs and outputs, totals and counters, and user-defined chains.
 - **Visual mapper (node version 2):** drag Input-panel fields onto target-profile fields. Kept for nodes already built with it; not the default for new nodes.
 - **Inputs:** item JSON, or JSON/XML from a field or file.
 - **Outputs:** JSON, XML or CSV, as an item field or a file.

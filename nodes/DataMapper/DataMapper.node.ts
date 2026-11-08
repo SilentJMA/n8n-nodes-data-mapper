@@ -31,6 +31,8 @@ import {
 	type ProfileFormat,
 } from './profile';
 import { buildDropRules, csvText, executeVisual, getProfileFields, orderByProfile, visualProperties } from './visual';
+import type { MapFunction } from './function-catalog';
+import { applyDefinition, readMapDefinition, type FunctionContext } from './functions';
 import { jsonToXml, parseXml, xmlToJson, XmlParseError } from './xml';
 
 type InputSource = 'json' | 'field' | 'binary';
@@ -609,7 +611,7 @@ const v1Properties: INodeProperties[] = [
 				type: 'json',
 				default: exampleDefinition,
 				description:
-					'An array of mappings, or { "mappings": [...] }. Each mapping has "target" and either "source" or "value", plus optional "transform", "ifMissing", "default", "separator", "decimals", "dateInputFormat", "dateOutputFormat", "lookup", "lookupFallback" and "lookupDefault".',
+					'An array of mappings, or { "mappings": [...], "functions": [...] }. Each mapping has "target" and either "source" or "value", plus optional "transform", "ifMissing", "default", "separator", "decimals", "dateInputFormat", "dateOutputFormat", "lookup", "lookupFallback" and "lookupDefault". Mappings connect to functions with "toFunction"/"toKey" and "fromFunction"/"fromKey".',
 				displayOptions: show({ definitionMode: ['json'] }),
 			},
 			// Shown only where auto-map runs: Auto-Map mode, or Auto-Map Remaining Target Fields.
@@ -859,27 +861,33 @@ export class DataMapper implements INodeType {
 			(this.getNodeParameter('csvOptions.csvCombine', 0, true) as boolean) !== false;
 		const csvRecords: Array<{ mapped: Record<string, unknown>; index: number }> = [];
 		let csvProfile: Profile | undefined;
+		const functionContext = createFunctionContext(this);
 
 		for (let i = 0; i < items.length; i++) {
 			try {
 				const input = await readInput(this, items[i], i);
-				const { rules, report, profile, order } = await buildRules(this, i, input, profileCache);
+				const { rules, report, profile, order, functions } = await buildRules(this, i, input, profileCache);
 				const unmapped = this.getNodeParameter('unmapped', i) as 'drop' | 'keep';
-				const start =
-					unmapped === 'keep' && input && typeof input === 'object' && !Array.isArray(input)
-						? structuredClone(input as Record<string, unknown>)
-						: {};
-				let mapped = applyMappings(input, rules, start);
-				if (order && profile) mapped = orderByProfile(mapped, profile);
-				// The report is documented as JSON-only; in XML or CSV it would end up in the document.
-				const format = this.getNodeParameter('outputFormat', i) as OutputFormat;
-				if (report && (format === 'json' || format === 'jsonFile')) mapped._autoMap = report;
-				if (combineCsv) {
-					csvRecords.push({ mapped, index: i });
-					csvProfile ??= profile;
-					continue;
+				const keepInput = unmapped === 'keep' && input && typeof input === 'object' && !Array.isArray(input);
+				const start = () => (keepInput ? structuredClone(input as Record<string, unknown>) : {});
+				// Definitions with functions can give several outputs (a Sum or Count with several groups).
+				const results = functions?.length
+					? (await applyDefinition(input, { mappings: rules, functions }, functionContext)).map((result) =>
+							Object.assign(start(), result),
+						)
+					: [applyMappings(input, rules, start())];
+				for (let mapped of results) {
+					if (order && profile) mapped = orderByProfile(mapped, profile);
+					// The report is documented as JSON-only; in XML or CSV it would end up in the document.
+					const format = this.getNodeParameter('outputFormat', i) as OutputFormat;
+					if (report && (format === 'json' || format === 'jsonFile')) mapped._autoMap = report;
+					if (combineCsv) {
+						csvRecords.push({ mapped, index: i });
+						csvProfile ??= profile;
+						continue;
+					}
+					returnData.push(await writeOutput(this, mapped, i, profile));
 				}
-				returnData.push(await writeOutput(this, mapped, i, profile));
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({ json: { error: error.message }, pairedItem: { item: i } });
@@ -1050,6 +1058,8 @@ interface BuiltRules {
 	report?: IDataObject;
 	/** When true, order the mapped output by the target profile's field order (resource-mapper layout). */
 	order?: boolean;
+	/** Map functions of a JSON definition ({ "mappings": [...], "functions": [...] }). */
+	functions?: MapFunction[];
 }
 
 interface FieldTransformUi {
@@ -1086,6 +1096,45 @@ function applyFieldTransforms(ctx: IExecuteFunctions, itemIndex: number, rules: 
 	}
 }
 
+/** A JSON definition: an array of mappings, or { "mappings": [...], "functions": [...] }. */
+function readJsonDefinition(raw: unknown): BuiltRules {
+	let parsed = raw;
+	if (typeof raw === 'string') {
+		try {
+			parsed = JSON.parse(raw);
+		} catch {
+			// parseDefinition reports invalid JSON with a clear message.
+			return { rules: parseDefinition(raw) };
+		}
+	}
+	const definition = readMapDefinition(parsed);
+	return { rules: parseDefinition(definition.mappings), functions: definition.functions };
+}
+
+/** Functions that keep state: Sequential Value stores its counter with the workflow. */
+function createFunctionContext(ctx: IExecuteFunctions): FunctionContext {
+	const sequences = new Map<string, { next: number; reserved: number }>();
+	return {
+		runCache: new Map(),
+		nextSequence(keyName, batchSize) {
+			const data = ctx.getWorkflowStaticData('node');
+			const storeKey = `dataMapperSequence:${keyName}`;
+			let state = sequences.get(keyName);
+			if (!state) {
+				const last = Number(data[storeKey] ?? 0) || 0;
+				state = { next: last + 1, reserved: last };
+				sequences.set(keyName, state);
+			}
+			// Values are reserved in blocks, so a run that stops early never hands out a value twice.
+			if (state.next > state.reserved) {
+				state.reserved += Math.max(1, batchSize);
+				data[storeKey] = state.reserved;
+			}
+			return state.next++;
+		},
+	};
+}
+
 async function buildRules(
 	ctx: IExecuteFunctions,
 	itemIndex: number,
@@ -1093,7 +1142,7 @@ async function buildRules(
 	cache: Map<string, Profile | undefined>,
 ): Promise<BuiltRules> {
 	const mode = ctx.getNodeParameter('definitionMode', itemIndex) as DefinitionMode;
-	if (mode === 'json') return { rules: parseDefinition(ctx.getNodeParameter('mappingJson', itemIndex)) };
+	if (mode === 'json') return readJsonDefinition(ctx.getNodeParameter('mappingJson', itemIndex));
 
 	const profile = await getProfile(ctx, itemIndex, cache);
 

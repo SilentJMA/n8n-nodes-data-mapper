@@ -45,6 +45,12 @@ export interface MappingRule {
 	 * first one. Used for fields picked from a profile or dragged from a single-element list.
 	 */
 	broadcast?: boolean;
+	/** Reads the value from an output port of a map function instead of `source`. */
+	fromFunction?: number;
+	fromKey?: number;
+	/** Writes the value to an input port of a map function instead of `target`. */
+	toFunction?: number;
+	toKey?: number;
 }
 
 export class MappingError extends Error {}
@@ -587,6 +593,10 @@ const RULE_KEYS = new Set([
 	'spread',
 	'lenient',
 	'broadcast',
+	'fromFunction',
+	'fromKey',
+	'toFunction',
+	'toKey',
 ]);
 
 /** Validates a mapping definition given as JSON: an array of rules or `{ "mappings": [...] }`. */
@@ -609,10 +619,14 @@ export function parseDefinition(definition: unknown): MappingRule[] {
 		}
 		const unknownKey = Object.keys(rule).find((k) => !RULE_KEYS.has(k));
 		if (unknownKey) throw new MappingError(`Mapping ${i + 1} has an unknown property "${unknownKey}"`);
-		if (typeof (rule as MappingRule).target !== 'string') {
+		const typed = rule as MappingRule;
+		if (typed.fromFunction !== undefined && typed.toFunction !== undefined) {
+			throw new MappingError(`Mapping ${i + 1} connects two functions. Every mapping needs a field on one side.`);
+		}
+		if (typed.toFunction === undefined && typeof typed.target !== 'string') {
 			throw new MappingError(`Mapping ${i + 1} needs a "target" path`);
 		}
-		return rule as MappingRule;
+		return typed;
 	});
 }
 
