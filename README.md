@@ -266,11 +266,27 @@ The **Visual Mapper** draws the same JSON definition as a canvas: a **source tre
 
 ### How to enable it
 
-The canvas is drawn by the free, open-source [**n8n Extras Plugin**](https://github.com/SilentJMA/n8n-extras-plugin). This node ships the mapping engine and stores the map; the plugin adds the drawing surface.
+The canvas is drawn by the free, open-source [**n8n Extras Plugin**](https://github.com/SilentJMA/n8n-extras-plugin). This node ships the mapping engine and stores the map; the plugin adds the drawing surface. You need all three of these:
 
-1. Install the **n8n Extras Plugin** on your n8n (it is applied to an n8n build; see its [installation guide](https://github.com/SilentJMA/n8n-extras-plugin/blob/main/docs/installation.md)).
-2. In n8n, open **Settings → Integrations → Plugins** and switch on **Visual Data Mapper**.
-3. In a **Data Mapper** node, set **Define Mappings** to **Visual Mapper**. Paste a **Target Profile** (and optionally a **Source Profile**); the canvas appears.
+1. **Run n8n with the plugin.** The drawing surface must be built into your n8n — a stock n8n cannot show it. The easiest way is the prebuilt image:
+   ```
+   ghcr.io/silentjma/n8n-extras:latest
+   ```
+   (or apply the overlay yourself; see the [plugin install guide](https://github.com/SilentJMA/n8n-extras-plugin/blob/main/docs/installation.md)).
+2. **Turn the feature on.** In n8n, open **Settings → Integrations → Plugins** and switch on **Visual Data Mapper**.
+3. **Pick the Visual Mapper mode on the node.** In a **Data Mapper** node, set **Define Mappings** to **Visual Mapper** (use the node's default version, v1). Paste a **Target Profile** (and optionally a **Source Profile**).
+
+> **The canvas only appears when Define Mappings = Visual Mapper.** It is a mode of the node, not an always-on view. On any other mode (*Map Each Column Manually*, *Auto-Map From Profile*, *Using JSON*) you see that mode's own fields instead. Step 3 is the one most people miss.
+
+**Not seeing the canvas?** Check, in order:
+
+- **Define Mappings** on the node is set to **Visual Mapper** (not *Map Each Column Manually*).
+- This node is **0.5.2 or newer** (Settings → Community nodes). Before 0.5.2 there is no Visual Mapper option.
+- Your n8n is the plugin build (Settings → Integrations → **Plugins** page exists) and **Visual Data Mapper** is on.
+- The node is the default version **v1**. The Visual Mapper is a v1 mode; v2 is a separate, older mapper without the canvas.
+- After updating the image or the node, **restart n8n** and **hard-refresh** the browser (Cmd/Ctrl+Shift+R) — n8n serves its editor bundle from startup.
+
+If **Visual Mapper** draws a plain JSON box instead of the canvas, the n8n you are on does not have the plugin, or the switch is off — the node and your map are fine, and still run.
 
 **Without the plugin** the **Visual Mapper** option still works — it shows the same map as an editable JSON box instead of a canvas. So a map built on a machine that has the plugin runs unchanged on one that does not, and every [function](#functions) stays available through **Using JSON**. The plugin only adds the drawing; it is never required to run a workflow.
 
