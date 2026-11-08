@@ -33,19 +33,19 @@ Use it to turn an API response into a partner's XML order, shape database rows i
 
 ## Screenshots
 
-**Mapping fields to a JSON output** — rename and nest fields, convert types, and reshape arrays:
+**Field mappings to JSON**: one mapping per field, with the source path, the target path and a transform. The output on the right nests the buyer, formats the date and builds the order lines:
 
-![Data Mapper producing JSON output](docs/images/json-mapping.webp)
+![Field mappings producing JSON output](docs/images/json-mapping.webp)
 
-<img width="2340" height="1362" alt="image" src="https://github.com/user-attachments/assets/81a3540f-9aee-40b7-8510-c8a2cbe39bcb" />
+**A JSON definition producing XML**: `.$.` writes attributes and `[*]` repeats elements:
 
-**Building XML with transforms and added fields** — attributes, nested elements, repeated items, a country lookup, rounding and a generated timestamp:
+![JSON definition producing XML output](docs/images/xml-output.webp)
 
-![Data Mapper producing XML output](docs/images/xml-output.webp)
-
-**A JSON definition with functions** — concatenate a name, look up a country, multiply quantity by price and number the lines, then write an XML invoice:
+**Functions in a JSON definition**: concatenate a name, look up a country, multiply quantity by price and number the lines, then write an XML invoice:
 
 ![JSON definition with functions producing an XML invoice](docs/images/functions-json-definition.webp)
+
+The first two screenshots use [`examples/data-mapper-examples.json`](examples/data-mapper-examples.json); import it to try them.
 
 ## Installation
 

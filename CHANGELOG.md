@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- The **Restructure order (fields)** node in `examples/data-mapper-examples.json` failed after import with "no target field is selected". Its mappings now set **Target** to **Custom Path**.
+
+### Changed
+
+- New README and Examples screenshots of the current n8n UI, taken from the example workflow.
+
 ## [0.5.0] - 2026-11-08
 
 ### Added

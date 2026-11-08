@@ -34,6 +34,7 @@
               "transform": "none",
               "ifMissing": "skip",
               "source": "id",
+              "targetMode": "custom",
               "target": "orderId"
             },
             {
@@ -41,6 +42,7 @@
               "transform": "date",
               "ifMissing": "skip",
               "source": "created",
+              "targetMode": "custom",
               "target": "orderDate",
               "dateInputFormat": "yyyyMMdd",
               "dateOutputFormat": "yyyy-MM-dd"
@@ -50,6 +52,7 @@
               "transform": "trim",
               "ifMissing": "skip",
               "source": "customer.name",
+              "targetMode": "custom",
               "target": "buyer.name"
             },
             {
@@ -57,6 +60,7 @@
               "transform": "lookup",
               "ifMissing": "skip",
               "source": "customer.country",
+              "targetMode": "custom",
               "target": "buyer.country",
               "lookupTable": "NL=Netherlands\nDE=Germany",
               "lookupFallback": "keep"
@@ -66,6 +70,7 @@
               "transform": "none",
               "ifMissing": "skip",
               "source": "items[*].sku",
+              "targetMode": "custom",
               "target": "lines[*].productCode"
             },
             {
@@ -73,6 +78,7 @@
               "transform": "integer",
               "ifMissing": "skip",
               "source": "items[*].qty",
+              "targetMode": "custom",
               "target": "lines[*].quantity"
             },
             {
@@ -80,12 +86,14 @@
               "transform": "round",
               "ifMissing": "skip",
               "source": "items[*].price",
+              "targetMode": "custom",
               "target": "lines[*].unitPrice",
               "decimals": 2
             },
             {
               "sourceType": "value",
               "value": "EUR",
+              "targetMode": "custom",
               "target": "lines[*].currency",
               "transform": "none"
             },
@@ -94,6 +102,7 @@
               "transform": "join",
               "ifMissing": "skip",
               "source": "items[*].sku",
+              "targetMode": "custom",
               "target": "skuList",
               "separator": ", "
             }
