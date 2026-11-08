@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-11-08
+
+### Added
+
+- **Visual Mapper (canvas).** **Define Mappings** has a new **Visual Mapper** option: a source tree, function boxes and a target tree, with lines drawn between them. It stores the map as the same JSON definition as **Using JSON** and runs through the same engine, so a workflow built this way runs on any n8n that has this node, with or without the editor.
+- **How to enable the canvas.** The drag-and-drop canvas is drawn by the free [n8n Extras Plugin](https://github.com/SilentJMA/n8n-extras-plugin): install it and switch on **Visual Data Mapper** in **Settings → Integrations → Plugins**. Without the plugin, **Visual Mapper** shows the same map as JSON, so nothing breaks — every function stays available in **Using JSON** mode. See [Visual Mapper](docs/Visual-Mapper.md).
+
 ## [0.5.1] - 2026-11-08
 
 ### Fixed

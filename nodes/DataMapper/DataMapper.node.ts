@@ -38,7 +38,7 @@ import { jsonToXml, parseXml, xmlToJson, XmlParseError } from './xml';
 type InputSource = 'json' | 'field' | 'binary';
 type InputFormat = 'auto' | 'json' | 'xml';
 type OutputFormat = 'json' | 'xml' | 'csv' | 'xmlFile' | 'jsonFile' | 'csvFile';
-type DefinitionMode = 'fields' | 'json' | 'auto';
+type DefinitionMode = 'fields' | 'json' | 'auto' | 'visual';
 
 interface UiMapping {
 	sourceType: 'field' | 'value' | 'profile';
@@ -421,7 +421,7 @@ const v1Properties: INodeProperties[] = [
 				placeholder:
 					'Optional: paste the structure of the incoming data (profile component, JSON Schema, sample JSON or XML, XSD, CSV header)',
 				description: 'Optional. Describes the incoming data, so you can pick source fields from a dropdown (Source: From Source Profile) instead of typing paths.',
-				displayOptions: show({ definitionMode: ['fields'] }),
+				displayOptions: show({ definitionMode: ['fields', 'visual'] }),
 			},
 			{
 				displayName: 'Source Profile Format',
@@ -437,7 +437,7 @@ const v1Properties: INodeProperties[] = [
 					{ name: 'XSD', value: 'xsd' },
 				],
 				default: 'auto',
-				displayOptions: show({ definitionMode: ['fields'] }),
+				displayOptions: show({ definitionMode: ['fields', 'visual'] }),
 			},
 			{
 				displayName:
@@ -445,7 +445,7 @@ const v1Properties: INodeProperties[] = [
 				name: 'profileNotice',
 				type: 'notice',
 				default: '',
-				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
+				displayOptions: show({ definitionMode: ['fields', 'auto', 'visual'] }),
 			},
 			{
 				displayName: 'Provide Target Profile',
@@ -465,7 +465,7 @@ const v1Properties: INodeProperties[] = [
 					},
 				],
 				default: 'paste',
-				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
+				displayOptions: show({ definitionMode: ['fields', 'auto', 'visual'] }),
 			},
 			{
 				displayName: 'Target Profile',
@@ -476,7 +476,7 @@ const v1Properties: INodeProperties[] = [
 				placeholder:
 					'Paste a profile component (XML/JSON/Flat File), JSON Schema, sample JSON or XML, XSD, or a CSV header row',
 				description: 'The structure to map into. The target fields come from this.',
-				displayOptions: show({ definitionMode: ['fields', 'auto'], targetProfileSource: ['paste'] }),
+				displayOptions: show({ definitionMode: ['fields', 'auto', 'visual'], targetProfileSource: ['paste'] }),
 			},
 			{
 				displayName: 'Target Profile File Field',
@@ -487,7 +487,7 @@ const v1Properties: INodeProperties[] = [
 				hint: 'The name of the binary field that holds the uploaded profile file',
 				description:
 					'Add a Read/Write Files From Disk, Form Trigger (file upload) or HTTP Request node before this one to bring the profile in, then name its binary field here. Auto-Map uses it; the field dropdown is only available when you paste the profile.',
-				displayOptions: show({ definitionMode: ['fields', 'auto'], targetProfileSource: ['binary'] }),
+				displayOptions: show({ definitionMode: ['fields', 'auto', 'visual'], targetProfileSource: ['binary'] }),
 			},
 			{
 				displayName: 'Target Profile Format',
@@ -504,7 +504,7 @@ const v1Properties: INodeProperties[] = [
 				],
 				default: 'auto',
 				description: 'The kind of profile you provided. Detect Automatically works for most profiles.',
-				displayOptions: show({ definitionMode: ['fields', 'auto'] }),
+				displayOptions: show({ definitionMode: ['fields', 'auto', 'visual'] }),
 			},
 			{
 				displayName: 'Define Mappings',
@@ -522,6 +522,12 @@ const v1Properties: INodeProperties[] = [
 						name: 'Using JSON',
 						value: 'json',
 						description: 'Paste or reference a mapping definition, so one mapping can be reused across workflows',
+					},
+					{
+						name: 'Visual Mapper',
+						value: 'visual',
+						description:
+							'Draw lines from source fields to target fields, with functions in between. Needs the n8n Extras Plugin with Visual Data Mapper switched on; otherwise you edit the same map as JSON.',
 					},
 				],
 				default: 'fields',
@@ -629,6 +635,25 @@ const v1Properties: INodeProperties[] = [
 				description:
 					'An array of mappings, or { "mappings": [...], "functions": [...] }. Each mapping has "target" and either "source" or "value", plus optional "transform", "ifMissing", "default", "separator", "decimals", "dateInputFormat", "dateOutputFormat", "lookup", "lookupFallback" and "lookupDefault". Mappings connect to functions with "toFunction"/"toKey" and "fromFunction"/"fromKey".',
 				displayOptions: show({ definitionMode: ['json'] }),
+			},
+			{
+				displayName: 'Visual Mapping',
+				name: 'visualMapping',
+				type: 'json',
+				default: '{ "mappings": [], "functions": [] }',
+				description:
+					'The map drawn in the visual mapper, stored as a JSON definition: { "mappings": [...], "functions": [...] }',
+				typeOptions: {
+					// Drawn by the module component of this name when the Extras plugin is active.
+					extensionComponent: 'extras.dataMapper',
+					dataMapper: {
+						sourceProfileParameter: 'sourceProfile',
+						sourceFormatParameter: 'sourceProfileFormat',
+						targetProfileParameter: 'targetProfile',
+						targetFormatParameter: 'targetProfileFormat',
+					},
+				},
+				displayOptions: show({ definitionMode: ['visual'] }),
 			},
 			// Shown only where auto-map runs: Auto-Map mode, or Auto-Map Remaining Target Fields.
 			{ ...autoOptionsProperty, displayOptions: show({ definitionMode: ['auto'] }) },
@@ -882,7 +907,7 @@ export class DataMapper implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			try {
 				const input = await readInput(this, items[i], i);
-				const { rules, report, profile, order, functions } = await buildRules(this, i, input, profileCache);
+				const { rules, report, profile, order, functions, xmlRoot } = await buildRules(this, i, input, profileCache);
 				const unmapped = this.getNodeParameter('unmapped', i) as 'drop' | 'keep';
 				const keepInput = unmapped === 'keep' && input && typeof input === 'object' && !Array.isArray(input);
 				const start = () => (keepInput ? structuredClone(input as Record<string, unknown>) : {});
@@ -902,7 +927,7 @@ export class DataMapper implements INodeType {
 						csvProfile ??= profile;
 						continue;
 					}
-					returnData.push(await writeOutput(this, mapped, i, profile));
+					returnData.push(await writeOutput(this, mapped, i, profile, xmlRoot));
 				}
 			} catch (error) {
 				if (this.continueOnFail()) {
@@ -1076,6 +1101,8 @@ interface BuiltRules {
 	order?: boolean;
 	/** Map functions of a JSON definition ({ "mappings": [...], "functions": [...] }). */
 	functions?: MapFunction[];
+	/** XML root to use when Root Element is empty (Visual Mapper: the root of a sample XML profile). */
+	xmlRoot?: string;
 }
 
 interface FieldTransformUi {
@@ -1159,6 +1186,13 @@ async function buildRules(
 ): Promise<BuiltRules> {
 	const mode = ctx.getNodeParameter('definitionMode', itemIndex) as DefinitionMode;
 	if (mode === 'json') return readJsonDefinition(ctx.getNodeParameter('mappingJson', itemIndex));
+	if (mode === 'visual') {
+		// Same definition format as Using JSON; the target profile orders the output, like Fill Target Fields.
+		const built = readJsonDefinition(ctx.getNodeParameter('visualMapping', itemIndex));
+		const profile = await getProfile(ctx, itemIndex, cache);
+		const xmlRoot = profile?.kind === 'sampleXml' ? profile.rootName : undefined;
+		return { ...built, profile, order: profile !== undefined, xmlRoot };
+	}
 
 	const profile = await getProfile(ctx, itemIndex, cache);
 
@@ -1253,6 +1287,7 @@ async function writeOutput(
 	mapped: Record<string, unknown>,
 	itemIndex: number,
 	profile?: Profile,
+	xmlRoot?: string,
 ): Promise<INodeExecutionData> {
 	const format = ctx.getNodeParameter('outputFormat', itemIndex) as OutputFormat;
 	const pairedItem = { item: itemIndex };
@@ -1275,7 +1310,7 @@ async function writeOutput(
 	}
 
 	const xml = jsonToXml(mapped, {
-		rootName: (ctx.getNodeParameter('rootElement', itemIndex, '') as string) || undefined,
+		rootName: (ctx.getNodeParameter('rootElement', itemIndex, '') as string) || xmlRoot,
 		declaration: ctx.getNodeParameter('xmlDeclaration', itemIndex, true) as boolean,
 		attributeKey: '$',
 		textKey: '_',

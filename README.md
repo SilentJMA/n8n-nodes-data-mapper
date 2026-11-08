@@ -10,7 +10,9 @@ Add a mapping for each field: pick the **source** (an input path, a field from a
 
 JSON definitions can also run **functions** (since 0.5.0): string, numeric, date, lookup and language functions with several inputs and outputs, totals and counters across records, and user-defined chains; see [Functions](#functions).
 
-There is also a **visual drag-and-drop mapper** (node version 2); see [below](#visual-drag-and-drop-mapper-node-version-2).
+Prefer to **draw** the mapping? Set **Define Mappings** to **Visual Mapper** for a canvas — a source tree, function boxes and a target tree, with lines between them. The canvas is drawn by the free [n8n Extras Plugin](https://github.com/SilentJMA/n8n-extras-plugin); without it the same map shows as JSON. See [Visual Mapper (canvas)](#visual-mapper-canvas).
+
+There is also an older **drag-and-drop target-fields mapper** (node version 2); see [below](#visual-drag-and-drop-mapper-node-version-2).
 
 Use it to turn an API response into a partner's XML order, shape database rows into a CSV export, read a supplier's XML into clean JSON, or pull the useful parts out of a large payload.
 
@@ -22,6 +24,7 @@ Use it to turn an API response into a partner's XML order, shape database rows i
 - [Transforms](#transforms)
 - [Target profiles and auto-map](#target-profiles-and-auto-map)
 - [Reusable JSON definitions](#reusable-json-definitions)
+- [Visual Mapper (canvas)](#visual-mapper-canvas)
 - [Functions](#functions)
 - [Working with XML](#working-with-xml)
 - [Examples](#examples)
@@ -135,7 +138,7 @@ Mappings run in order, and a later mapping to the same target overwrites an earl
 | **Input** | *Item JSON* maps each incoming item. *Text Field* first parses JSON or XML text stored in a field. *File* first parses a JSON or XML binary file. |
 | **Input Field** / **Input Binary Field** | Which field holds the text or file. |
 | **Input Format** | *Detect Automatically* (XML when the text starts with `<`), *JSON* or *XML*. |
-| **Define Mappings** | *Map Each Column Manually*, *Auto-Map From Profile*, or *Using JSON*. See [Target profiles and auto-map](#target-profiles-and-auto-map) and [Reusable JSON definitions](#reusable-json-definitions). |
+| **Define Mappings** | *Map Each Column Manually*, *Auto-Map From Profile*, *Using JSON*, or *Visual Mapper* (a drag-and-drop canvas; needs the [n8n Extras Plugin](#visual-mapper-canvas), otherwise it shows the same map as JSON). See [Target profiles and auto-map](#target-profiles-and-auto-map), [Reusable JSON definitions](#reusable-json-definitions) and [Visual Mapper (canvas)](#visual-mapper-canvas). |
 | **Target Profile** / **Target Profile Format** | Optional. The structure to map into. See [Target profiles and auto-map](#target-profiles-and-auto-map). |
 | **Source Profile** / **Source Profile Format** | Optional (*Map Each Column Manually*). The structure of the incoming data, so each mapping can use **Source: From Source Profile** and pick the field from a dropdown. |
 | **Mappings** | The list of mappings. Each has a **Source** (*Input Field* path, *From Source Profile* dropdown, or *Fixed Value*, which can be an expression), a **Target** (*Custom Path* you type, or *From Target Profile* picked from a dropdown), an optional **Transform**, and **If Source Is Missing**: *Leave Out* (default), *Set to Null*, *Use Default* or *Stop With Error*. |
@@ -256,6 +259,20 @@ Set **Define Mappings** to **Using JSON** to describe the mapping as data. You c
 Unknown properties are rejected, so a typo such as `"tranform"` fails loudly instead of being ignored.
 
 A mapping can also connect to a function with `toFunction`/`toKey` or `fromFunction`/`fromKey`; see [Functions](#functions).
+
+## Visual Mapper (canvas)
+
+The **Visual Mapper** draws the same JSON definition as a canvas: a **source tree** on the left, **function boxes** in the middle, and a **target tree** on the right, with lines between them. Drag a source field onto a target field to map it, add functions with **+ Add function**, and wire fields into their inputs and outputs onto target fields. Selecting a line, field or function highlights its path. The map is saved as the node's JSON definition, so it runs exactly like **Using JSON**.
+
+### How to enable it
+
+The canvas is drawn by the free, open-source [**n8n Extras Plugin**](https://github.com/SilentJMA/n8n-extras-plugin). This node ships the mapping engine and stores the map; the plugin adds the drawing surface.
+
+1. Install the **n8n Extras Plugin** on your n8n (it is applied to an n8n build; see its [installation guide](https://github.com/SilentJMA/n8n-extras-plugin/blob/main/docs/installation.md)).
+2. In n8n, open **Settings → Integrations → Plugins** and switch on **Visual Data Mapper**.
+3. In a **Data Mapper** node, set **Define Mappings** to **Visual Mapper**. Paste a **Target Profile** (and optionally a **Source Profile**); the canvas appears.
+
+**Without the plugin** the **Visual Mapper** option still works — it shows the same map as an editable JSON box instead of a canvas. So a map built on a machine that has the plugin runs unchanged on one that does not, and every [function](#functions) stays available through **Using JSON**. The plugin only adds the drawing; it is never required to run a workflow.
 
 ## Functions
 

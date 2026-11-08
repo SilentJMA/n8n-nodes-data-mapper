@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-data-mapper",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "n8n community node: drag and drop incoming data onto a target profile and output XML, JSON or CSV, with auto-map, array handling and type conversion.",
   "keywords": [
     "n8n-community-node-package",
@@ -55,6 +55,7 @@
   },
   "devDependencies": {
     "@n8n/node-cli": "*",
+    "esbuild": "0.28.2",
     "eslint": "9.32.0",
     "prettier": "3.6.2",
     "typescript": "5.9.2"

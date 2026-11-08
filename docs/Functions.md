@@ -2,6 +2,8 @@
 
 Functions transform values between the source and the target when a single transform is not enough: they can take several inputs, give several outputs, count and total across records, or look values up. They are part of a **JSON definition** (**Define Mappings → Using JSON**), available from version 0.5.0.
 
+Every function runs the same whether you write the JSON by hand (**Using JSON**) or draw it on the [Visual Mapper canvas](Visual-Mapper.md). The canvas is only a way to build the definition; it needs no plugin to run, and all functions stay available in **Using JSON** without one.
+
 ![A JSON definition with functions, producing an XML invoice](images/functions-json-definition.webp)
 
 ## How a definition with functions looks
